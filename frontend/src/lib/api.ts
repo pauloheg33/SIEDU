@@ -197,6 +197,18 @@ export const eventsAPI = {
   },
 };
 
+// Helper: extract storage path from a Supabase public URL
+function extractStoragePath(url: string, bucket: string): string | null {
+  // URL format: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const idx = url.indexOf(marker);
+  if (idx !== -1) return decodeURIComponent(url.substring(idx + marker.length));
+  // Fallback: try to get last 2 segments (eventId/filename)
+  const parts = url.split('/');
+  if (parts.length >= 2) return parts.slice(-2).join('/');
+  return null;
+}
+
 // Files
 export const filesAPI = {
   list: async (eventId: string, kind?: FileKind): Promise<EventFile[]> => {
@@ -210,7 +222,25 @@ export const filesAPI = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data as EventFile[];
+
+    const files = data as EventFile[];
+
+    // Generate fresh signed URLs for each file (works even if bucket is not public)
+    for (const file of files) {
+      const bucket = file.kind === 'PHOTO' ? 'photos' : 'documents';
+      const path = extractStoragePath(file.url, bucket);
+      if (path) {
+        const { data: signedData } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(path, 3600); // 1 hour expiry
+        if (signedData?.signedUrl) {
+          file.url = signedData.signedUrl;
+          file.thumbnail_url = signedData.signedUrl;
+        }
+      }
+    }
+
+    return files;
   },
 
   upload: async (eventId: string, files: File[], kind: FileKind): Promise<EventFile[]> => {
@@ -231,13 +261,16 @@ export const filesAPI = {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get public URL (stored in DB as reference path)
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
-      // Use the same URL for thumbnail (image transformations require Supabase Pro)
-      const thumbnailUrl = kind === 'PHOTO' ? urlData.publicUrl : null;
+      // Generate a signed URL for immediate use
+      const { data: signedData } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(fileName, 3600);
+      const displayUrl = signedData?.signedUrl || urlData.publicUrl;
 
-      // Save to database
+      // Save public URL to database (signed URLs regenerated on list)
       const { data: fileData, error: dbError } = await supabase
         .from('event_files')
         .insert({
@@ -247,7 +280,7 @@ export const filesAPI = {
           mime: file.type,
           size: file.size,
           url: urlData.publicUrl,
-          thumbnail_url: thumbnailUrl,
+          thumbnail_url: urlData.publicUrl,
           uploaded_by: user.id,
         })
         .select('*, uploader:users!uploaded_by(*)')

@@ -228,11 +228,11 @@ create policy "Authors and admins can delete reports" on public.event_reports
     exists (select 1 from public.users where id = auth.uid() and role = 'ADMIN')
   );
 
--- Create storage buckets (ignore if exists)
+-- Create storage buckets (force public = true even if bucket already exists)
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
-  on conflict (id) do nothing;
+  on conflict (id) do update set public = true;
 insert into storage.buckets (id, name, public) values ('documents', 'documents', true)
-  on conflict (id) do nothing;
+  on conflict (id) do update set public = true;
 
 -- Storage policies
 drop policy if exists "Authenticated users can upload photos" on storage.objects;
