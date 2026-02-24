@@ -63,4 +63,4 @@ O deploy é automático via GitHub Actions ao fazer push na branch `main`.
 
 - **ADMIN** - Acesso total
 - **TEC_FORMACAO** - Técnico de Formação
-- **TEC_ACOMPANHAMENTO** - Técnico de Acompanhamento
+- **TEC_ACOMPANHAMENTO** - Técnico SME

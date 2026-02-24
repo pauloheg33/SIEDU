@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { UserRole } from '@/types';
 import { 
   Home, 
   Calendar, 
@@ -12,6 +13,12 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import './Layout.css';
+
+const USER_ROLE_LABELS: Record<UserRole, string> = {
+  [UserRole.ADMIN]: 'Administrador',
+  [UserRole.TEC_FORMACAO]: 'Técnico de Formação',
+  [UserRole.TEC_ACOMPANHAMENTO]: 'Técnico SME',
+};
 
 interface LayoutProps {
   children: ReactNode;
@@ -90,7 +97,7 @@ export default function Layout({ children }: LayoutProps) {
                 <User size={20} />
                 <div>
                   <div className="user-name">{user?.name}</div>
-                  <div className="user-role">{user?.role}</div>
+                  <div className="user-role">{user?.role ? USER_ROLE_LABELS[user.role as UserRole] || user.role : ''}</div>
                 </div>
               </div>
               <button 
