@@ -197,16 +197,67 @@ export const eventsAPI = {
   },
 };
 
-// Helper: extract storage path from a Supabase public URL
+// Helper: extract storage path from a Supabase URL (public, signed, or render)
 function extractStoragePath(url: string, bucket: string): string | null {
-  // URL format: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const idx = url.indexOf(marker);
-  if (idx !== -1) return decodeURIComponent(url.substring(idx + marker.length));
-  // Fallback: try to get last 2 segments (eventId/filename)
-  const parts = url.split('/');
-  if (parts.length >= 2) return parts.slice(-2).join('/');
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+
+    // Match multiple Supabase URL patterns
+    const patterns = [
+      `/storage/v1/object/public/${bucket}/`,
+      `/storage/v1/render/image/public/${bucket}/`,
+      `/storage/v1/object/sign/${bucket}/`,
+    ];
+
+    for (const pattern of patterns) {
+      const idx = pathname.indexOf(pattern);
+      if (idx !== -1) {
+        return decodeURIComponent(pathname.substring(idx + pattern.length));
+      }
+    }
+
+    // Fallback: last 2 path segments (eventId/filename)
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length >= 2) {
+      return segments.slice(-2).join('/');
+    }
+  } catch {
+    // Not a valid URL — treat as raw path
+    if (url.includes('/')) return url;
+  }
   return null;
+}
+
+// Helper: get a working URL for a storage file (tries signed URL, then download as blob)
+async function getWorkingUrl(bucket: string, path: string): Promise<string | null> {
+  // Strategy 1: Signed URL (works for private and public buckets)
+  try {
+    const { data: signedData, error: signError } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 3600);
+    if (signedData?.signedUrl && !signError) {
+      return signedData.signedUrl;
+    }
+  } catch (e) {
+    console.warn('[Storage] Signed URL failed for', path, e);
+  }
+
+  // Strategy 2: Download file and create blob URL (always works if file exists)
+  try {
+    const { data: blob, error: dlError } = await supabase.storage
+      .from(bucket)
+      .download(path);
+    if (blob && !dlError) {
+      return URL.createObjectURL(blob);
+    }
+  } catch (e) {
+    console.warn('[Storage] Download failed for', path, e);
+  }
+
+  // Strategy 3: Public URL as last resort
+  const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(path);
+  return pubData?.publicUrl || null;
 }
 
 // Files
@@ -225,17 +276,15 @@ export const filesAPI = {
 
     const files = data as EventFile[];
 
-    // Generate fresh signed URLs for each file (works even if bucket is not public)
+    // Generate working URLs for each file
     for (const file of files) {
       const bucket = file.kind === 'PHOTO' ? 'photos' : 'documents';
       const path = extractStoragePath(file.url, bucket);
       if (path) {
-        const { data: signedData } = await supabase.storage
-          .from(bucket)
-          .createSignedUrl(path, 3600); // 1 hour expiry
-        if (signedData?.signedUrl) {
-          file.url = signedData.signedUrl;
-          file.thumbnail_url = signedData.signedUrl;
+        const workingUrl = await getWorkingUrl(bucket, path);
+        if (workingUrl) {
+          file.url = workingUrl;
+          file.thumbnail_url = workingUrl;
         }
       }
     }
