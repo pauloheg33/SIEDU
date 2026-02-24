@@ -32,7 +32,7 @@ export default function Login() {
       <div className="auth-card">
         <div className="auth-header">
           <img src="/SIEDE/logo.png" alt="Brasão Ararendá" className="auth-logo" />
-          <h1>EDUCA ARARENDÁ</h1>
+          <h1>SIEDU</h1>
           <p>Sistema Integrado de Evidências da Educação</p>
         </div>
 

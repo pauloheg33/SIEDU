@@ -49,7 +49,7 @@ export default function Register() {
         <div className="auth-header">
           <img src="/SIEDE/logo.png" alt="Brasão Ararendá" className="auth-logo" />
           <h1>Criar Conta</h1>
-          <p>Registre-se no EDUCA ARARENDÁ</p>
+          <p>Registre-se no SIEDU</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">

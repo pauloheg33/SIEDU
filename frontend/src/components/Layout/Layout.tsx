@@ -42,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="sidebar-brand">
             <img src="/SIEDE/logo.png" alt="Brasão Ararendá" className="sidebar-logo" />
             <div className="sidebar-brand-text">
-              <h1 className="sidebar-title">EDUCA ARARENDÁ</h1>
+              <h1 className="sidebar-title">SIEDU</h1>
               <span className="sidebar-subtitle">Ararendá</span>
             </div>
           </div>

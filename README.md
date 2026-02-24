@@ -1,4 +1,4 @@
-# EDUCA ARARENDÁ - Sistema de Evidências SME
+# SIEDU - Sistema de Evidências SME
 
 Sistema para gestão de evidências e eventos da Secretaria Municipal de Educação.
 
