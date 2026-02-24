@@ -47,7 +47,7 @@ Em Settings → Pages, selecione "GitHub Actions" como source.
 
 O deploy é automático via GitHub Actions ao fazer push na branch `main`.
 
-**URL:** https://pauloheg33.github.io/SIEDE/
+**URL:** https://pauloheg33.github.io/SIEDU/
 
 ## 📋 Funcionalidades
 

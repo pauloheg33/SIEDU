@@ -47,7 +47,7 @@ export default function Register() {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <img src="/SIEDE/logo.png" alt="Brasão Ararendá" className="auth-logo" />
+          <img src="/SIEDU/logo.png" alt="Brasão Ararendá" className="auth-logo" />
           <h1>Criar Conta</h1>
           <p>Registre-se no SIEDU</p>
         </div>

@@ -40,7 +40,7 @@ export default function Layout({ children }: LayoutProps) {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <img src="/SIEDE/logo.png" alt="Brasão Ararendá" className="sidebar-logo" />
+            <img src="/SIEDU/logo.png" alt="Brasão Ararendá" className="sidebar-logo" />
             <div className="sidebar-brand-text">
               <h1 className="sidebar-title">SIEDU</h1>
               <span className="sidebar-subtitle">Ararendá</span>

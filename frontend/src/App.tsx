@@ -76,7 +76,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter basename="/SIEDE">
+    <BrowserRouter basename="/SIEDU">
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
