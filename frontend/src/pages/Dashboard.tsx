@@ -67,7 +67,7 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">SIEDE Ararendá - Gerencie eventos e evidências</p>
+          <p className="page-subtitle">EDUCA ARARENDÁ - Gerencie eventos e evidências</p>
         </div>
         <Link to="/events/new" className="btn btn-primary">
           <Plus size={20} />

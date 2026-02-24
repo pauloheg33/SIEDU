@@ -1,4 +1,4 @@
-# SIEDE - Sistema de Evidências SME
+# EDUCA ARARENDÁ - Sistema de Evidências SME
 
 Sistema para gestão de evidências e eventos da Secretaria Municipal de Educação.
 
