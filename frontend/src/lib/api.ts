@@ -234,14 +234,8 @@ export const filesAPI = {
       // Get public URL
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
-      // Create thumbnail URL for photos
-      let thumbnailUrl = null;
-      if (kind === 'PHOTO') {
-        const { data: thumbData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(fileName, { transform: { width: 320, height: 320 } });
-        thumbnailUrl = thumbData.publicUrl;
-      }
+      // Use the same URL for thumbnail (image transformations require Supabase Pro)
+      const thumbnailUrl = kind === 'PHOTO' ? urlData.publicUrl : null;
 
       // Save to database
       const { data: fileData, error: dbError } = await supabase

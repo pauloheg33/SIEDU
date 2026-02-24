@@ -457,6 +457,13 @@ export default function EventDetail() {
                     <img 
                       src={photo.thumbnail_url || photo.url} 
                       alt={photo.filename}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (target.src !== photo.url) {
+                          target.src = photo.url;
+                        }
+                      }}
                     />
                     <button 
                       className="delete-btn"
@@ -478,7 +485,13 @@ export default function EventDetail() {
                 <button className="close-btn" onClick={() => setSelectedPhoto(null)}>
                   <X size={24} />
                 </button>
-                <img src={selectedPhoto.url} alt={selectedPhoto.filename} />
+                <img 
+                  src={selectedPhoto.url} 
+                  alt={selectedPhoto.filename}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
               </div>
             )}
           </div>
