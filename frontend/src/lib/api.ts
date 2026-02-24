@@ -313,12 +313,6 @@ export const filesAPI = {
       // Get public URL (stored in DB as reference path)
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
-      // Generate a signed URL for immediate use
-      const { data: signedData } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(fileName, 3600);
-      const displayUrl = signedData?.signedUrl || urlData.publicUrl;
-
       // Save public URL to database (signed URLs regenerated on list)
       const { data: fileData, error: dbError } = await supabase
         .from('event_files')
