@@ -19,7 +19,7 @@ export default function Login() {
     try {
       await login(formData);
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      navigate('/portfolio');
     } catch (error: any) {
       const message = error?.message || error?.error_description || 'Erro ao fazer login';
       toast.error(message);

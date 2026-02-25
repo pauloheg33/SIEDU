@@ -35,7 +35,7 @@ export default function Register() {
         password: formData.password,
       });
       toast.success('Cadastro realizado com sucesso!');
-      navigate('/dashboard');
+      navigate('/portfolio');
     } catch (error: any) {
       const message = error?.message || error?.error_description || 'Erro ao cadastrar';
       toast.error(message);

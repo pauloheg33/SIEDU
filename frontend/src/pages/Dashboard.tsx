@@ -66,7 +66,7 @@ export default function Dashboard() {
     <Layout>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dashboard</h1>
+          <h1 className="page-title">Portifólio</h1>
           <p className="page-subtitle">SIEDU - Gerencie eventos e evidências</p>
         </div>
         <Link to="/events/new" className="btn btn-primary">

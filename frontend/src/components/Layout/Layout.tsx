@@ -55,9 +55,9 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         <nav className="sidebar-nav">
-          <Link to="/dashboard" className="nav-link">
+          <Link to="/portfolio" className="nav-link">
             <Home size={20} />
-            <span>Dashboard</span>
+            <span>Portifólio</span>
           </Link>
           <Link to="/events" className="nav-link">
             <Calendar size={20} />

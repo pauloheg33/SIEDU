@@ -84,7 +84,7 @@ function App() {
 
         {/* Protected routes */}
         <Route
-          path="/dashboard"
+          path="/portfolio"
           element={
             <ProtectedRoute>
               <Dashboard />
@@ -116,11 +116,11 @@ function App() {
           }
         />
 
-        {/* Redirect root to dashboard */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Redirect root to portfolio */}
+        <Route path="/" element={<Navigate to="/portfolio" replace />} />
 
         {/* 404 */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/portfolio" replace />} />
       </Routes>
 
       <ToastContainer

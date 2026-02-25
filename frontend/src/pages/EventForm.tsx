@@ -68,7 +68,7 @@ export default function EventForm() {
       setSchoolsInput(event.schools?.join(', ') || '');
     } catch (error) {
       toast.error('Erro ao carregar evento');
-      navigate('/dashboard');
+      navigate('/portfolio');
     } finally {
       setLoading(false);
     }

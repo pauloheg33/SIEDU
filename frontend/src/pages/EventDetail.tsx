@@ -83,7 +83,7 @@ export default function EventDetail() {
       setEvent(data);
     } catch (error) {
       toast.error('Erro ao carregar evento');
-      navigate('/dashboard');
+      navigate('/portfolio');
     } finally {
       setLoading(false);
     }
@@ -123,7 +123,7 @@ export default function EventDetail() {
     try {
       await eventsAPI.delete(id!);
       toast.success('Evento excluído com sucesso');
-      navigate('/dashboard');
+      navigate('/portfolio');
     } catch (error) {
       toast.error('Erro ao excluir evento');
     }
@@ -290,7 +290,7 @@ export default function EventDetail() {
       {/* Header */}
       <div className="event-detail-header">
         <div className="header-left">
-          <button className="btn btn-ghost" onClick={() => navigate('/dashboard')}>
+          <button className="btn btn-ghost" onClick={() => navigate('/portfolio')}>
             <ArrowLeft size={20} />
             Voltar
           </button>
