@@ -45,6 +45,9 @@ export default function EventDetail() {
   const [report, setReport] = useState<EventReport | null>(null);
   const [reportContent, setReportContent] = useState('');
   const [savingReport, setSavingReport] = useState(false);
+  const [reportPdfs, setReportPdfs] = useState<EventFile[]>([]);
+  const [uploadingReportPdf, setUploadingReportPdf] = useState(false);
+  const [previewReportPdf, setPreviewReportPdf] = useState<EventFile | null>(null);
   
   // Attendance
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -100,6 +103,8 @@ export default function EventDetail() {
           const reportData = await reportsAPI.get(id!);
           setReport(reportData);
           setReportContent(reportData?.content || '');
+          const reportPdfFiles = await filesAPI.list(id!, FileKind.DOC);
+          setReportPdfs(reportPdfFiles.filter(f => f.mime === 'application/pdf' && f.filename?.toLowerCase().includes('relatorio')));
           break;
         case 'attendance':
           const attendanceData = await attendanceAPI.list(id!);
@@ -161,6 +166,45 @@ export default function EventDetail() {
   };
 
   // Report handlers
+  const handleReportPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+
+    const file = files[0];
+    if (file.type !== 'application/pdf') {
+      toast.error('Por favor, selecione um arquivo PDF');
+      return;
+    }
+
+    // Rename file to include 'relatorio' prefix to distinguish from attendance PDFs
+    const renamedFile = new File([file], `relatorio_${file.name}`, { type: file.type });
+
+    try {
+      setUploadingReportPdf(true);
+      await filesAPI.upload(id!, [renamedFile], FileKind.DOC);
+      toast.success('PDF do relatório enviado com sucesso!');
+      loadTabData();
+    } catch (error) {
+      toast.error('Erro ao enviar PDF do relatório');
+    } finally {
+      setUploadingReportPdf(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteReportPdf = async (fileId: string) => {
+    if (!window.confirm('Excluir este PDF do relatório?')) return;
+
+    try {
+      await filesAPI.delete(id!, fileId);
+      toast.success('PDF excluído');
+      setReportPdfs(reportPdfs.filter(p => p.id !== fileId));
+      if (previewReportPdf?.id === fileId) setPreviewReportPdf(null);
+    } catch (error) {
+      toast.error('Erro ao excluir PDF');
+    }
+  };
+
   const handleSaveReport = async () => {
     if (!reportContent.trim()) {
       toast.error('O conteúdo do relatório é obrigatório');
@@ -502,19 +546,72 @@ export default function EventDetail() {
           <div className="report-tab">
             <div className="tab-header">
               <h3>Relatório do Evento</h3>
-              <button 
-                className="btn btn-primary"
-                onClick={handleSaveReport}
-                disabled={savingReport}
-              >
-                <Save size={18} />
-                {savingReport ? 'Salvando...' : 'Salvar Relatório'}
-              </button>
+              <div className="header-buttons">
+                <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+                  <Upload size={18} />
+                  {uploadingReportPdf ? 'Enviando...' : 'Enviar PDF'}
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleReportPdfUpload}
+                    disabled={uploadingReportPdf}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleSaveReport}
+                  disabled={savingReport}
+                >
+                  <Save size={18} />
+                  {savingReport ? 'Salvando...' : 'Salvar Relatório'}
+                </button>
+              </div>
             </div>
+
+            {/* PDFs do Relatório */}
+            {reportPdfs.length > 0 && (
+              <div className="report-pdfs-section">
+                <h4>PDFs Anexados</h4>
+                <div className="report-pdfs-list">
+                  {reportPdfs.map((pdf) => (
+                    <div key={pdf.id} className="report-pdf-item">
+                      <div className="report-pdf-info" onClick={() => setPreviewReportPdf(previewReportPdf?.id === pdf.id ? null : pdf)}>
+                        <File size={20} />
+                        <div>
+                          <span className="report-pdf-name">{pdf.filename.replace(/^relatorio_/, '')}</span>
+                          <span className="report-pdf-size">{(pdf.size / 1024).toFixed(0)} KB</span>
+                        </div>
+                      </div>
+                      <div className="report-pdf-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => setPreviewReportPdf(previewReportPdf?.id === pdf.id ? null : pdf)}>
+                          <Eye size={16} />
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteReportPdf(pdf.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {previewReportPdf && (
+                  <div className="report-pdf-preview">
+                    <iframe
+                      src={previewReportPdf.url}
+                      title={previewReportPdf.filename}
+                      width="100%"
+                      height="600px"
+                      style={{ border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="report-form">
               <p className="report-description">
-                Descreva as informações relevantes sobre este evento, incluindo resultados, observações e quaisquer detalhes importantes.
+                Ou digite o relatório manualmente abaixo:
               </p>
               <textarea
                 className="form-textarea report-textarea"

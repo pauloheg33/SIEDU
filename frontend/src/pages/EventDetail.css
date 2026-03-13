@@ -713,6 +713,78 @@
   margin: 0;
 }
 
+.report-pdfs-section {
+  margin-bottom: 1.5rem;
+}
+
+.report-pdfs-section h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.75rem 0;
+}
+
+.report-pdfs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.report-pdf-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  transition: background 0.15s;
+}
+
+.report-pdf-item:hover {
+  background: #f3f4f6;
+}
+
+.report-pdf-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: #374151;
+  flex: 1;
+  min-width: 0;
+}
+
+.report-pdf-info svg {
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.report-pdf-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-pdf-size {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  display: block;
+}
+
+.report-pdf-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.report-pdf-preview {
+  margin-top: 1rem;
+}
+
 .report-placeholder {
   display: flex;
   flex-direction: column;
