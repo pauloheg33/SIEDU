@@ -104,7 +104,7 @@ export default function EventDetail() {
           setReport(reportData);
           setReportContent(reportData?.content || '');
           const reportPdfFiles = await filesAPI.list(id!, FileKind.DOC);
-          setReportPdfs(reportPdfFiles.filter(f => f.mime === 'application/pdf' && f.filename?.toLowerCase().includes('relatorio')));
+          setReportPdfs(reportPdfFiles.filter(f => f.mime === 'application/pdf'));
           break;
         case 'attendance':
           const attendanceData = await attendanceAPI.list(id!);
@@ -176,12 +176,9 @@ export default function EventDetail() {
       return;
     }
 
-    // Rename file to include 'relatorio' prefix to distinguish from attendance PDFs
-    const renamedFile = new File([file], `relatorio_${file.name}`, { type: file.type });
-
     try {
       setUploadingReportPdf(true);
-      await filesAPI.upload(id!, [renamedFile], FileKind.DOC);
+      await filesAPI.upload(id!, [file], FileKind.DOC);
       toast.success('PDF do relatório enviado com sucesso!');
       loadTabData();
     } catch (error) {
@@ -579,7 +576,7 @@ export default function EventDetail() {
                       <div className="report-pdf-info" onClick={() => setPreviewReportPdf(previewReportPdf?.id === pdf.id ? null : pdf)}>
                         <File size={20} />
                         <div>
-                          <span className="report-pdf-name">{pdf.filename.replace(/^relatorio_/, '')}</span>
+                          <span className="report-pdf-name">{pdf.filename}</span>
                           <span className="report-pdf-size">{(pdf.size / 1024).toFixed(0)} KB</span>
                         </div>
                       </div>
