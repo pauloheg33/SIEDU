@@ -42,6 +42,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (event === 'SIGNED_IN' && session) {
         const user = await authAPI.getUser();
         set({ user, isAuthenticated: !!user });
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        // Session was refreshed — keep user state consistent
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser) {
+          const user = await authAPI.getUser();
+          set({ user, isAuthenticated: !!user });
+        }
       } else if (event === 'SIGNED_OUT') {
         set({ user: null, isAuthenticated: false });
       }

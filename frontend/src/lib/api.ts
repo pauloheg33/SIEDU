@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, getAuthenticatedUser } from './supabase';
 import type {
   User,
   Event,
@@ -49,17 +49,20 @@ export const authAPI = {
   },
 
   getUser: async (): Promise<User | null> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    try {
+      const user = await getAuthenticatedUser();
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    if (error) throw error;
-    return data as User;
+      if (error) throw error;
+      return data as User;
+    } catch {
+      return null;
+    }
   },
 
   getSession: () => supabase.auth.getSession(),
@@ -148,8 +151,7 @@ export const eventsAPI = {
   },
 
   create: async (eventData: EventCreateRequest): Promise<Event> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const user = await getAuthenticatedUser();
 
     // Remove undefined values - use any to bypass strict Supabase typing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -293,8 +295,7 @@ export const filesAPI = {
   },
 
   upload: async (eventId: string, files: File[], kind: FileKind): Promise<EventFile[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const user = await getAuthenticatedUser();
 
     const uploadedFiles: EventFile[] = [];
 
@@ -432,8 +433,7 @@ export const notesAPI = {
   },
 
   create: async (eventId: string, noteData: NoteCreateRequest): Promise<EventNote> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const user = await getAuthenticatedUser();
 
     const { data, error } = await supabase
       .from('event_notes')
@@ -480,8 +480,7 @@ export const reportsAPI = {
   },
 
   upsert: async (eventId: string, reportData: ReportCreateRequest): Promise<EventReport> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const user = await getAuthenticatedUser();
 
     // Check if report exists
     const existing = await reportsAPI.get(eventId);
