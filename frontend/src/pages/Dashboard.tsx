@@ -38,7 +38,12 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    loadEvents();
+    // Safety net: if loadEvents hangs, force loading=false after 20 s
+    const bailout = setTimeout(() => {
+      setLoading(false);
+      toast.error('Tempo de conexão esgotado. Verifique sua internet e recarregue a página.');
+    }, 20_000);
+    loadEvents().finally(() => clearTimeout(bailout));
   }, []);
 
   const loadEvents = async () => {
@@ -51,7 +56,10 @@ export default function Dashboard() {
       const data = await eventsAPI.list(params);
       setEvents(data);
     } catch (error: any) {
-      toast.error('Erro ao carregar eventos');
+      const isAbort = error?.name === 'AbortError' || String(error?.message).toLowerCase().includes('abort');
+      toast.error(isAbort
+        ? 'Tempo de conexão esgotado. Verifique sua internet e tente novamente.'
+        : (error?.message || 'Erro ao carregar eventos'));
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { supabase, getAuthenticatedUser, ensureFreshSession } from './supabase';
+import { supabase, getAuthenticatedUser, ensureFreshSession, querySignal } from './supabase';
 import type {
   User,
   Event,
@@ -133,6 +133,7 @@ export const eventsAPI = {
     let query = supabase
       .from('events')
       .select('*, creator:users!created_by(*)')
+      .abortSignal(querySignal())
       .order('start_at', { ascending: false });
 
     if (params?.type) query = query.eq('type', params.type as EventTypeFilter);
@@ -149,6 +150,7 @@ export const eventsAPI = {
     const { data, error } = await supabase
       .from('events')
       .select('*, creator:users!created_by(*)')
+      .abortSignal(querySignal())
       .eq('id', id)
       .single();
 
@@ -171,6 +173,7 @@ export const eventsAPI = {
     const { data, error } = await supabase
       .from('events')
       .insert(cleanData)
+      .abortSignal(querySignal())
       .select()
       .single();
 
@@ -192,6 +195,7 @@ export const eventsAPI = {
     const { data, error } = await supabase
       .from('events')
       .update(cleanData)
+      .abortSignal(querySignal())
       .eq('id', id)
       .select()
       .single();
@@ -277,6 +281,7 @@ export const filesAPI = {
     let query = supabase
       .from('event_files')
       .select('*')
+      .abortSignal(querySignal())
       .eq('event_id', eventId)
       .order('created_at', { ascending: false });
 
@@ -488,6 +493,7 @@ export const reportsAPI = {
     const { data, error } = await supabase
       .from('event_reports')
       .select('*')
+      .abortSignal(querySignal())
       .eq('event_id', eventId)
       .single();
 
