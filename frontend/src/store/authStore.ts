@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { authAPI } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+import { supabase, ensureFreshSession } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
@@ -23,7 +23,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
   initialize: async () => {
     set({ isLoading: true });
     
-    // Check for existing session
+    // Check for existing session, refresh if needed
+    await ensureFreshSession();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
@@ -92,6 +93,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   loadUser: async () => {
+    await ensureFreshSession();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       set({ isAuthenticated: false, isLoading: false });

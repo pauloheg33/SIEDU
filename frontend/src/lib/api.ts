@@ -1,4 +1,4 @@
-import { supabase, getAuthenticatedUser } from './supabase';
+import { supabase, getAuthenticatedUser, ensureFreshSession } from './supabase';
 import type {
   User,
   Event,
@@ -73,6 +73,7 @@ export const authAPI = {
 // Users
 export const usersAPI = {
   list: async (): Promise<User[]> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -83,6 +84,7 @@ export const usersAPI = {
   },
 
   update: async (id: string, updates: Partial<User>): Promise<User> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('users')
       .update(updates)
@@ -95,6 +97,7 @@ export const usersAPI = {
   },
 
   changeRole: async (id: string, role: 'ADMIN' | 'TEC_FORMACAO' | 'TEC_ACOMPANHAMENTO'): Promise<User> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('users')
       .update({ role })
@@ -107,6 +110,7 @@ export const usersAPI = {
   },
 
   deactivate: async (id: string): Promise<User> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('users')
       .update({ is_active: false })
@@ -125,6 +129,7 @@ type EventStatusFilter = 'PLANEJADO' | 'REALIZADO' | 'ARQUIVADO';
 
 export const eventsAPI = {
   list: async (params?: { type?: string; status?: string; search?: string }): Promise<Event[]> => {
+    await ensureFreshSession();
     let query = supabase
       .from('events')
       .select('*, creator:users!created_by(*)')
@@ -140,6 +145,7 @@ export const eventsAPI = {
   },
 
   get: async (id: string): Promise<Event> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('events')
       .select('*, creator:users!created_by(*)')
@@ -173,6 +179,7 @@ export const eventsAPI = {
   },
 
   update: async (id: string, eventData: Partial<EventCreateRequest>): Promise<Event> => {
+    await ensureFreshSession();
     // Remove undefined values - use any to bypass strict Supabase typing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cleanData: any = { updated_at: new Date().toISOString() };
@@ -194,6 +201,7 @@ export const eventsAPI = {
   },
 
   delete: async (id: string): Promise<void> => {
+    await ensureFreshSession();
     const { error } = await supabase.from('events').delete().eq('id', id);
     if (error) throw error;
   },
@@ -265,6 +273,7 @@ async function getWorkingUrl(bucket: string, path: string): Promise<string | nul
 // Files
 export const filesAPI = {
   list: async (eventId: string, kind?: FileKind): Promise<EventFile[]> => {
+    await ensureFreshSession();
     let query = supabase
       .from('event_files')
       .select('*')
@@ -338,6 +347,7 @@ export const filesAPI = {
   },
 
   delete: async (_eventId: string, fileId: string): Promise<void> => {
+    await ensureFreshSession();
     // Get file info first
     const { data: file, error: fetchError } = await supabase
       .from('event_files')
@@ -361,6 +371,7 @@ export const filesAPI = {
 // Attendance
 export const attendanceAPI = {
   list: async (eventId: string): Promise<Attendance[]> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
@@ -372,6 +383,7 @@ export const attendanceAPI = {
   },
 
   create: async (eventId: string, attendanceData: AttendanceCreateRequest): Promise<Attendance> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('attendance')
       .insert({ ...attendanceData, event_id: eventId })
@@ -383,6 +395,7 @@ export const attendanceAPI = {
   },
 
   createMany: async (eventId: string, records: AttendanceCreateRequest[]): Promise<Attendance[]> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('attendance')
       .insert(records.map(r => ({ ...r, event_id: eventId })))
@@ -393,11 +406,13 @@ export const attendanceAPI = {
   },
 
   delete: async (_eventId: string, attendanceId: string): Promise<void> => {
+    await ensureFreshSession();
     const { error } = await supabase.from('attendance').delete().eq('id', attendanceId);
     if (error) throw error;
   },
 
   exportCSV: async (eventId: string): Promise<Blob> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
@@ -422,6 +437,7 @@ export const attendanceAPI = {
 // Notes
 export const notesAPI = {
   list: async (eventId: string): Promise<EventNote[]> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('event_notes')
       .select('*')
@@ -446,6 +462,7 @@ export const notesAPI = {
   },
 
   update: async (_eventId: string, noteId: string, noteData: NoteCreateRequest): Promise<EventNote> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('event_notes')
       .update({ ...noteData, updated_at: new Date().toISOString() })
@@ -458,6 +475,7 @@ export const notesAPI = {
   },
 
   delete: async (_eventId: string, noteId: string): Promise<void> => {
+    await ensureFreshSession();
     const { error } = await supabase.from('event_notes').delete().eq('id', noteId);
     if (error) throw error;
   },
@@ -466,6 +484,7 @@ export const notesAPI = {
 // Reports (Relatórios)
 export const reportsAPI = {
   get: async (eventId: string): Promise<EventReport | null> => {
+    await ensureFreshSession();
     const { data, error } = await supabase
       .from('event_reports')
       .select('*')
@@ -510,6 +529,7 @@ export const reportsAPI = {
   },
 
   delete: async (eventId: string): Promise<void> => {
+    await ensureFreshSession();
     const { error } = await supabase.from('event_reports').delete().eq('event_id', eventId);
     if (error) throw error;
   },
