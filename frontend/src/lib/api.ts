@@ -1,4 +1,5 @@
 import { supabase, getAuthenticatedUser, ensureFreshSession, querySignal } from './supabase';
+import { FileScope } from '@/types';
 import type {
   User,
   Event,
@@ -11,7 +12,6 @@ import type {
   NoteCreateRequest,
   ReportCreateRequest,
   FileKind,
-  FileScope,
 } from '@/types';
 
 // Auth
