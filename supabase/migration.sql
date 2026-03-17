@@ -25,6 +25,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+  CREATE TYPE file_scope AS ENUM ('UNSCOPED', 'REPORT_PDF', 'ATTENDANCE_PDF', 'REPORT_PPT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- Create users table (extends auth.users)
 create table if not exists public.users (
   id uuid references auth.users on delete cascade primary key,
@@ -58,6 +63,7 @@ create table if not exists public.event_files (
   id uuid default uuid_generate_v4() primary key,
   event_id uuid references public.events(id) on delete cascade not null,
   kind file_kind not null,
+  scope file_scope not null default 'UNSCOPED',
   filename text not null,
   mime text not null,
   size integer not null,
@@ -66,6 +72,13 @@ create table if not exists public.event_files (
   uploaded_by uuid references public.users(id) on delete set null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Ensure compatibility when event_files already exists without scope
+ALTER TABLE public.event_files
+  ADD COLUMN IF NOT EXISTS scope file_scope;
+
+ALTER TABLE public.event_files
+  ALTER COLUMN scope SET DEFAULT 'UNSCOPED';
 
 -- Create attendance table
 create table if not exists public.attendance (
@@ -103,6 +116,7 @@ create index if not exists events_created_by_idx on public.events(created_by);
 create index if not exists events_status_idx on public.events(status);
 create index if not exists events_type_idx on public.events(type);
 create index if not exists event_files_event_id_idx on public.event_files(event_id);
+create index if not exists event_files_scope_idx on public.event_files(scope);
 create index if not exists attendance_event_id_idx on public.attendance(event_id);
 create index if not exists event_notes_event_id_idx on public.event_notes(event_id);
 create index if not exists event_reports_event_id_idx on public.event_reports(event_id);
@@ -285,3 +299,16 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Compatibility updates for already provisioned databases
+UPDATE public.event_files
+SET scope = CASE
+  WHEN kind = 'PHOTO' THEN 'UNSCOPED'::file_scope
+  WHEN lower(filename) LIKE '%.ppt' OR lower(filename) LIKE '%.pptx' THEN 'REPORT_PPT'::file_scope
+  WHEN lower(filename) LIKE '%relatorio%' OR lower(filename) LIKE '%relatório%' THEN 'REPORT_PDF'::file_scope
+  ELSE 'ATTENDANCE_PDF'::file_scope
+END
+WHERE scope IS NULL OR scope = 'UNSCOPED';
+
+ALTER TABLE public.event_files
+  ALTER COLUMN scope SET NOT NULL;

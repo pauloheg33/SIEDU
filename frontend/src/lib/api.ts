@@ -11,6 +11,7 @@ import type {
   NoteCreateRequest,
   ReportCreateRequest,
   FileKind,
+  FileScope,
 } from '@/types';
 
 // Auth
@@ -276,7 +277,7 @@ async function getWorkingUrl(bucket: string, path: string): Promise<string | nul
 
 // Files
 export const filesAPI = {
-  list: async (eventId: string, kind?: FileKind): Promise<EventFile[]> => {
+  list: async (eventId: string, kind?: FileKind, scope?: FileScope): Promise<EventFile[]> => {
     await ensureFreshSession();
     let query = supabase
       .from('event_files')
@@ -286,6 +287,7 @@ export const filesAPI = {
       .order('created_at', { ascending: false });
 
     if (kind) query = query.eq('kind', kind);
+  if (scope) query = query.eq('scope', scope);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -308,7 +310,12 @@ export const filesAPI = {
     return files;
   },
 
-  upload: async (eventId: string, files: File[], kind: FileKind): Promise<EventFile[]> => {
+  upload: async (
+    eventId: string,
+    files: File[],
+    kind: FileKind,
+    scope: FileScope = FileScope.UNSCOPED,
+  ): Promise<EventFile[]> => {
     const user = await getAuthenticatedUser();
 
     const uploadedFiles: EventFile[] = [];
@@ -334,6 +341,7 @@ export const filesAPI = {
         .insert({
           event_id: eventId,
           kind,
+          scope,
           filename: file.name,
           mime: file.type,
           size: file.size,

@@ -2,7 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Layout from '@/components/Layout/Layout';
 import { eventsAPI, filesAPI, attendanceAPI, notesAPI, reportsAPI } from '@/lib/api';
-import { Event, EventFile, Attendance, EventNote, EventReport, EventType, EventStatus, FileKind } from '@/types';
+import {
+  Event,
+  EventFile,
+  Attendance,
+  EventNote,
+  EventReport,
+  EventType,
+  EventStatus,
+  FileKind,
+  FileScope,
+} from '@/types';
 import { 
   ArrowLeft, Edit, Trash2, Calendar, MapPin, Users, 
   Image, FileText, ClipboardList, MessageSquare, 
@@ -47,7 +57,10 @@ export default function EventDetail() {
   const [savingReport, setSavingReport] = useState(false);
   const [reportPdfs, setReportPdfs] = useState<EventFile[]>([]);
   const [uploadingReportPdf, setUploadingReportPdf] = useState(false);
+  const [reportPpts, setReportPpts] = useState<EventFile[]>([]);
+  const [uploadingReportPpt, setUploadingReportPpt] = useState(false);
   const [previewReportPdf, setPreviewReportPdf] = useState<EventFile | null>(null);
+  const [previewReportPpt, setPreviewReportPpt] = useState<EventFile | null>(null);
   
   // Attendance
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -103,14 +116,16 @@ export default function EventDetail() {
           const reportData = await reportsAPI.get(id!);
           setReport(reportData);
           setReportContent(reportData?.content || '');
-          const reportPdfFiles = await filesAPI.list(id!, FileKind.DOC);
-          setReportPdfs(reportPdfFiles.filter(f => f.mime === 'application/pdf'));
+          const reportPdfFiles = await filesAPI.list(id!, FileKind.DOC, FileScope.REPORT_PDF);
+          setReportPdfs(reportPdfFiles);
+          const reportPptFiles = await filesAPI.list(id!, FileKind.DOC, FileScope.REPORT_PPT);
+          setReportPpts(reportPptFiles);
           break;
         case 'attendance':
           const attendanceData = await attendanceAPI.list(id!);
           setAttendance(attendanceData);
-          const pdfFiles = await filesAPI.list(id!, FileKind.DOC);
-          setAttendancePdfs(pdfFiles.filter(f => f.mime === 'application/pdf'));
+          const pdfFiles = await filesAPI.list(id!, FileKind.DOC, FileScope.ATTENDANCE_PDF);
+          setAttendancePdfs(pdfFiles);
           break;
         case 'notes':
           const notesData = await notesAPI.list(id!);
@@ -152,6 +167,16 @@ export default function EventDetail() {
     }
   };
 
+  const isPptFile = (file: File) => {
+    const pptMimes = [
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/octet-stream',
+    ];
+    const lowerName = file.name.toLowerCase();
+    return pptMimes.includes(file.type) || lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx');
+  };
+
   const handleDeletePhoto = async (fileId: string) => {
     if (!window.confirm('Excluir esta foto?')) return;
     
@@ -178,7 +203,7 @@ export default function EventDetail() {
 
     try {
       setUploadingReportPdf(true);
-      await filesAPI.upload(id!, [file], FileKind.DOC);
+      await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.REPORT_PDF);
       toast.success('PDF do relatório enviado com sucesso!');
       loadTabData();
     } catch (error) {
@@ -199,6 +224,42 @@ export default function EventDetail() {
       if (previewReportPdf?.id === fileId) setPreviewReportPdf(null);
     } catch (error) {
       toast.error('Erro ao excluir PDF');
+    }
+  };
+
+  const handleReportPptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+
+    const file = files[0];
+    if (!isPptFile(file)) {
+      toast.error('Por favor, selecione um arquivo PPT ou PPTX');
+      return;
+    }
+
+    try {
+      setUploadingReportPpt(true);
+      await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.REPORT_PPT);
+      toast.success('PPT do relatório enviado com sucesso!');
+      loadTabData();
+    } catch (error) {
+      toast.error('Erro ao enviar PPT do relatório');
+    } finally {
+      setUploadingReportPpt(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteReportPpt = async (fileId: string) => {
+    if (!window.confirm('Excluir este PPT do relatório?')) return;
+
+    try {
+      await filesAPI.delete(id!, fileId);
+      toast.success('PPT excluído');
+      setReportPpts(reportPpts.filter(p => p.id !== fileId));
+      if (previewReportPpt?.id === fileId) setPreviewReportPpt(null);
+    } catch (error) {
+      toast.error('Erro ao excluir PPT');
     }
   };
 
@@ -261,7 +322,7 @@ export default function EventDetail() {
 
     try {
       setUploadingPdf(true);
-      await filesAPI.upload(id!, [file], FileKind.DOC);
+      await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.ATTENDANCE_PDF);
       toast.success('PDF de frequência enviado com sucesso!');
       loadTabData();
     } catch (error) {
@@ -555,6 +616,17 @@ export default function EventDetail() {
                     style={{ display: 'none' }}
                   />
                 </label>
+                <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+                  <Upload size={18} />
+                  {uploadingReportPpt ? 'Enviando...' : 'Upload de PPT'}
+                  <input
+                    type="file"
+                    accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    onChange={handleReportPptUpload}
+                    disabled={uploadingReportPpt}
+                    style={{ display: 'none' }}
+                  />
+                </label>
                 <button 
                   className="btn btn-primary"
                   onClick={handleSaveReport}
@@ -601,6 +673,50 @@ export default function EventDetail() {
                       height="600px"
                       style={{ border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
                     />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {reportPpts.length > 0 && (
+              <div className="report-pdfs-section">
+                <h4>PPTs Anexados</h4>
+                <div className="report-pdfs-list">
+                  {reportPpts.map((ppt) => (
+                    <div key={ppt.id} className="report-pdf-item">
+                      <div className="report-pdf-info">
+                        <FileText size={20} />
+                        <div>
+                          <span className="report-pdf-name">{ppt.filename}</span>
+                          <span className="report-pdf-size">{(ppt.size / 1024).toFixed(0)} KB</span>
+                        </div>
+                      </div>
+                      <div className="report-pdf-actions">
+                        <a
+                          className="btn btn-ghost btn-sm"
+                          href={ppt.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Abrir PPT"
+                        >
+                          <Eye size={16} />
+                        </a>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setPreviewReportPpt(previewReportPpt?.id === ppt.id ? null : ppt)}>
+                          <FileText size={16} />
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteReportPpt(ppt.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {previewReportPpt && (
+                  <div className="report-pdf-preview">
+                    <p>
+                      O arquivo <strong>{previewReportPpt.filename}</strong> foi selecionado. Use o botão de visualização para abrir em nova aba.
+                    </p>
                   </div>
                 )}
               </div>

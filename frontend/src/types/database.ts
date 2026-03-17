@@ -99,6 +99,7 @@ export type Database = {
           id: string
           event_id: string
           kind: 'PHOTO' | 'DOC'
+          scope: 'UNSCOPED' | 'REPORT_PDF' | 'ATTENDANCE_PDF' | 'REPORT_PPT'
           filename: string
           mime: string
           size: number
@@ -111,6 +112,7 @@ export type Database = {
           id?: string
           event_id: string
           kind: 'PHOTO' | 'DOC'
+          scope?: 'UNSCOPED' | 'REPORT_PDF' | 'ATTENDANCE_PDF' | 'REPORT_PPT'
           filename: string
           mime: string
           size: number
@@ -123,6 +125,7 @@ export type Database = {
           id?: string
           event_id?: string
           kind?: 'PHOTO' | 'DOC'
+          scope?: 'UNSCOPED' | 'REPORT_PDF' | 'ATTENDANCE_PDF' | 'REPORT_PPT'
           filename?: string
           mime?: string
           size?: number
@@ -275,6 +278,7 @@ export type Database = {
       event_type: 'FORMACAO' | 'PREMIACAO' | 'ENCONTRO' | 'OUTRO'
       event_status: 'PLANEJADO' | 'REALIZADO' | 'ARQUIVADO'
       file_kind: 'PHOTO' | 'DOC'
+      file_scope: 'UNSCOPED' | 'REPORT_PDF' | 'ATTENDANCE_PDF' | 'REPORT_PPT'
     }
     CompositeTypes: {
       [_ in never]: never

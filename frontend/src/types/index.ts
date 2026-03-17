@@ -22,6 +22,13 @@ export enum FileKind {
   DOC = 'DOC',
 }
 
+export enum FileScope {
+  UNSCOPED = 'UNSCOPED',
+  REPORT_PDF = 'REPORT_PDF',
+  ATTENDANCE_PDF = 'ATTENDANCE_PDF',
+  REPORT_PPT = 'REPORT_PPT',
+}
+
 export interface User {
   id: string;
   name: string;
@@ -53,6 +60,7 @@ export interface EventFile {
   id: string;
   event_id: string;
   kind: FileKind;
+  scope: FileScope;
   filename: string;
   mime: string;
   size: number;
