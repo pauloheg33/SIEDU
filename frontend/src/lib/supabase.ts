@@ -54,18 +54,21 @@ export function querySignal(timeoutMs = 15_000): AbortSignal {
 }
 
 export async function withTimeout<T>(
-  promise: Promise<T>,
+  operation: PromiseLike<T> | T,
   timeoutMs = 20_000,
   errorMessage = 'Tempo de conexão esgotado. Tente novamente.',
 ): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
+  const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
   });
 
   try {
-    return await Promise.race([promise, timeoutPromise]);
+    return await Promise.race<T>([
+      Promise.resolve(operation),
+      timeoutPromise,
+    ]);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
