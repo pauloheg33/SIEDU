@@ -1,5 +1,6 @@
 import { supabase, getAuthenticatedUser, ensureFreshSession, querySignal } from './supabase';
 import { FileScope } from '@/types';
+import { withTimeout } from './supabase';
 import type {
   User,
   Event,
@@ -17,13 +18,13 @@ import type {
 // Auth
 export const authAPI = {
   register: async (data: { name: string; email: string; password: string }) => {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await withTimeout(supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
         data: { name: data.name },
       },
-    });
+    }), 15_000, 'Tempo esgotado ao cadastrar.');
 
     if (authError) throw authError;
     if (!authData.user) throw new Error('Registration failed');
@@ -35,17 +36,17 @@ export const authAPI = {
   },
 
   login: async (data: { email: string; password: string }) => {
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await withTimeout(supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
-    });
+    }), 15_000, 'Tempo esgotado ao fazer login.');
 
     if (error) throw error;
     return authData;
   },
 
   logout: async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await withTimeout(supabase.auth.signOut(), 10_000, 'Tempo esgotado ao sair.');
     if (error) throw error;
   },
 
@@ -171,12 +172,12 @@ export const eventsAPI = {
       }
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('events')
       .insert(cleanData)
       .abortSignal(querySignal())
       .select()
-      .single();
+      .single(), 20_000, 'Tempo esgotado ao criar evento.');
 
     if (error) throw error;
     return data as Event;
@@ -193,13 +194,13 @@ export const eventsAPI = {
       }
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('events')
       .update(cleanData)
       .abortSignal(querySignal())
       .eq('id', id)
       .select()
-      .single();
+      .single(), 20_000, 'Tempo esgotado ao atualizar evento.');
 
     if (error) throw error;
     return data as Event;
@@ -326,9 +327,9 @@ export const filesAPI = {
       const bucket = kind === 'PHOTO' ? 'photos' : 'documents';
 
       // Upload to storage
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await withTimeout(supabase.storage
         .from(bucket)
-        .upload(fileName, file);
+        .upload(fileName, file), 30_000, 'Tempo esgotado no upload do arquivo.');
 
       if (uploadError) throw uploadError;
 
@@ -336,7 +337,7 @@ export const filesAPI = {
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
       // Save public URL to database (signed URLs regenerated on list)
-      const { data: fileData, error: dbError } = await supabase
+      const { data: fileData, error: dbError } = await withTimeout(supabase
         .from('event_files')
         .insert({
           event_id: eventId,
@@ -350,7 +351,7 @@ export const filesAPI = {
           uploaded_by: user.id,
         })
         .select('*, uploader:users!uploaded_by(*)')
-        .single();
+        .single(), 20_000, 'Arquivo enviado, mas falhou ao salvar metadados.');
 
       if (dbError) throw dbError;
       uploadedFiles.push(fileData as EventFile);
@@ -397,11 +398,11 @@ export const attendanceAPI = {
 
   create: async (eventId: string, attendanceData: AttendanceCreateRequest): Promise<Attendance> => {
     await ensureFreshSession();
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('attendance')
       .insert({ ...attendanceData, event_id: eventId })
       .select()
-      .single();
+      .single(), 20_000, 'Tempo esgotado ao salvar presença.');
 
     if (error) throw error;
     return data as Attendance;
@@ -409,10 +410,10 @@ export const attendanceAPI = {
 
   createMany: async (eventId: string, records: AttendanceCreateRequest[]): Promise<Attendance[]> => {
     await ensureFreshSession();
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('attendance')
       .insert(records.map(r => ({ ...r, event_id: eventId })))
-      .select();
+      .select(), 20_000, 'Tempo esgotado ao salvar lista de presença.');
 
     if (error) throw error;
     return data as Attendance[];
@@ -464,11 +465,11 @@ export const notesAPI = {
   create: async (eventId: string, noteData: NoteCreateRequest): Promise<EventNote> => {
     const user = await getAuthenticatedUser();
 
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('event_notes')
       .insert({ ...noteData, event_id: eventId, created_by: user.id })
       .select()
-      .single();
+      .single(), 20_000, 'Tempo esgotado ao salvar observação.');
 
     if (error) throw error;
     return data as EventNote;
@@ -520,22 +521,22 @@ export const reportsAPI = {
 
     if (existing) {
       // Update existing report
-      const { data, error } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from('event_reports')
         .update({ ...reportData, updated_at: new Date().toISOString() })
         .eq('event_id', eventId)
         .select('*')
-        .single();
+        .single(), 20_000, 'Tempo esgotado ao atualizar relatório.');
 
       if (error) throw error;
       return data as unknown as EventReport;
     } else {
       // Create new report
-      const { data, error } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from('event_reports')
         .insert({ ...reportData, event_id: eventId, created_by: user.id })
         .select('*')
-        .single();
+        .single(), 20_000, 'Tempo esgotado ao salvar relatório.');
 
       if (error) throw error;
       return data as unknown as EventReport;

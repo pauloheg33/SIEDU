@@ -33,7 +33,11 @@ export async function ensureFreshSession(): Promise<void> {}
  * No network call is made — autoRefreshToken renews the token in the background.
  */
 export async function getAuthenticatedUser() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await withTimeout(
+    supabase.auth.getSession(),
+    12_000,
+    'Falha ao validar sessão. Faça login novamente.',
+  );
   if (!session) throw new Error('Not authenticated');
   return session.user;
 }
@@ -47,4 +51,22 @@ export function querySignal(timeoutMs = 15_000): AbortSignal {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), timeoutMs);
   return controller.signal;
+}
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 20_000,
+  errorMessage = 'Tempo de conexão esgotado. Tente novamente.',
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }

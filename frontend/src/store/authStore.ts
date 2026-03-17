@@ -1,8 +1,11 @@
 import { create } from 'zustand';
 import { authAPI } from '@/lib/api';
-import { supabase, ensureFreshSession } from '@/lib/supabase';
+import { supabase, ensureFreshSession, withTimeout } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+
+let hasInitializedAuth = false;
+let authUnsubscribe: (() => void) | null = null;
 
 interface AuthStore {
   user: User | null;
@@ -21,46 +24,64 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isAuthenticated: false,
 
   initialize: async () => {
+    if (hasInitializedAuth) return;
+    hasInitializedAuth = true;
     set({ isLoading: true });
-    
-    // Check for existing session, refresh if needed
-    await ensureFreshSession();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-      try {
-        const user = await authAPI.getUser();
+
+    try {
+      await ensureFreshSession();
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        12_000,
+        'Não foi possível validar sua sessão.',
+      );
+
+      if (session) {
+        const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
         set({ user, isAuthenticated: !!user, isLoading: false });
-      } catch {
+      } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
-    } else {
+    } catch {
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
 
-    // Listen for auth changes
-    supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    if (authUnsubscribe) {
+      authUnsubscribe();
+      authUnsubscribe = null;
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (event === 'SIGNED_IN' && session) {
-        const user = await authAPI.getUser();
-        set({ user, isAuthenticated: !!user });
+        try {
+          const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
+          set({ user, isAuthenticated: !!user, isLoading: false });
+        } catch {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+        }
       } else if (event === 'TOKEN_REFRESHED' && session) {
-        // Session was refreshed — keep user state consistent
         const currentUser = useAuthStore.getState().user;
         if (!currentUser) {
-          const user = await authAPI.getUser();
-          set({ user, isAuthenticated: !!user });
+          try {
+            const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
+            set({ user, isAuthenticated: !!user, isLoading: false });
+          } catch {
+            set({ user: null, isAuthenticated: false, isLoading: false });
+          }
         }
       } else if (event === 'SIGNED_OUT') {
-        set({ user: null, isAuthenticated: false });
+        set({ user: null, isAuthenticated: false, isLoading: false });
       }
     });
+
+    authUnsubscribe = () => subscription.unsubscribe();
   },
 
   login: async (data: { email: string; password: string }) => {
     set({ isLoading: true });
     try {
-      await authAPI.login(data);
-      const user = await authAPI.getUser();
+      await withTimeout(authAPI.login(data), 15_000, 'Tempo esgotado ao fazer login.');
+      const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
@@ -71,10 +92,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
   register: async (data: { name: string; email: string; password: string }) => {
     set({ isLoading: true });
     try {
-      await authAPI.register(data);
-      // Auto-login after registration
-      await authAPI.login({ email: data.email, password: data.password });
-      const user = await authAPI.getUser();
+      await withTimeout(authAPI.register(data), 15_000, 'Tempo esgotado ao cadastrar.');
+      await withTimeout(
+        authAPI.login({ email: data.email, password: data.password }),
+        15_000,
+        'Tempo esgotado ao entrar após cadastro.',
+      );
+      const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
@@ -93,16 +117,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   loadUser: async () => {
-    await ensureFreshSession();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      set({ isAuthenticated: false, isLoading: false });
-      return;
-    }
-
-    set({ isLoading: true });
     try {
-      const user = await authAPI.getUser();
+      await ensureFreshSession();
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        12_000,
+        'Não foi possível validar sua sessão.',
+      );
+
+      if (!session) {
+        set({ user: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
+
+      set({ isLoading: true });
+      const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
       set({ user, isAuthenticated: !!user, isLoading: false });
     } catch {
       set({ user: null, isAuthenticated: false, isLoading: false });
