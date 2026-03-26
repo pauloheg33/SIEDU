@@ -36,11 +36,14 @@ export default function Login() {
           <p>Sistema Integrado de Evidências da Educação</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="auth-form" autoComplete="on">
           <div className="form-group">
-            <label className="form-label">E-mail</label>
+            <label className="form-label" htmlFor="login-email">E-mail</label>
             <input
+              id="login-email"
+              name="email"
               type="email"
+              autoComplete="email"
               className="form-input"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -49,9 +52,12 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Senha</label>
+            <label className="form-label" htmlFor="login-password">Senha</label>
             <input
+              id="login-password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               className="form-input"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
