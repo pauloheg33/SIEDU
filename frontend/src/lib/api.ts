@@ -211,6 +211,36 @@ export const eventsAPI = {
     const { error } = await supabase.from('events').delete().eq('id', id);
     if (error) throw error;
   },
+
+  generateShareToken: async (id: string): Promise<string> => {
+    await ensureFreshSession();
+    // Check if event already has a share_token
+    const { data: existing } = await supabase
+      .from('events')
+      .select('share_token')
+      .eq('id', id)
+      .single();
+
+    if (existing?.share_token) return existing.share_token;
+
+    const token = crypto.randomUUID();
+    const { error } = await withTimeout(supabase
+      .from('events')
+      .update({ share_token: token })
+      .eq('id', id), 15_000, 'Tempo esgotado ao gerar link de compartilhamento.');
+
+    if (error) throw error;
+    return token;
+  },
+
+  revokeShareToken: async (id: string): Promise<void> => {
+    await ensureFreshSession();
+    const { error } = await supabase
+      .from('events')
+      .update({ share_token: null })
+      .eq('id', id);
+    if (error) throw error;
+  },
 };
 
 // Helper: extract storage path from a Supabase URL (public, signed, or render)
@@ -547,5 +577,98 @@ export const reportsAPI = {
     await ensureFreshSession();
     const { error } = await supabase.from('event_reports').delete().eq('event_id', eventId);
     if (error) throw error;
+  },
+};
+
+// Public API (no auth required - for shared event pages)
+export const publicAPI = {
+  getEventByToken: async (token: string): Promise<Event | null> => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*, creator:users!created_by(*)')
+      .eq('share_token', token)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data as Event;
+  },
+
+  getPhotos: async (eventId: string): Promise<EventFile[]> => {
+    const { data, error } = await supabase
+      .from('event_files')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('kind', 'PHOTO')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const files = data as EventFile[];
+
+    // Generate working URLs for each file
+    for (const file of files) {
+      const path = extractStoragePath(file.url, 'photos');
+      if (path) {
+        const workingUrl = await getWorkingUrl('photos', path);
+        if (workingUrl) {
+          file.url = workingUrl;
+          file.thumbnail_url = workingUrl;
+        }
+      }
+    }
+
+    return files;
+  },
+
+  getReport: async (eventId: string): Promise<EventReport | null> => {
+    const { data, error } = await supabase
+      .from('event_reports')
+      .select('*')
+      .eq('event_id', eventId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data as unknown as EventReport;
+  },
+
+  getAttendance: async (eventId: string): Promise<Attendance[]> => {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('person_name');
+
+    if (error) throw error;
+    return data as Attendance[];
+  },
+
+  getReportFiles: async (eventId: string): Promise<EventFile[]> => {
+    const { data, error } = await supabase
+      .from('event_files')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('kind', 'DOC')
+      .in('scope', ['REPORT_PDF', 'REPORT_PPT'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const files = data as EventFile[];
+
+    for (const file of files) {
+      const path = extractStoragePath(file.url, 'documents');
+      if (path) {
+        const workingUrl = await getWorkingUrl('documents', path);
+        if (workingUrl) {
+          file.url = workingUrl;
+        }
+      }
+    }
+
+    return files;
   },
 };

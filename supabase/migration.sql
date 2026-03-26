@@ -312,3 +312,64 @@ WHERE scope IS NULL OR scope = 'UNSCOPED';
 
 ALTER TABLE public.event_files
   ALTER COLUMN scope SET NOT NULL;
+
+-- ============================================================
+-- Share token for public event pages (QR Code sharing)
+-- ============================================================
+
+-- Add share_token column to events
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS share_token text UNIQUE;
+
+-- Index for fast token lookups
+CREATE INDEX IF NOT EXISTS events_share_token_idx ON public.events(share_token)
+  WHERE share_token IS NOT NULL;
+
+-- Allow anonymous (unauthenticated) users to read events by share_token
+DROP POLICY IF EXISTS "Anyone can view shared events by token" ON public.events;
+CREATE POLICY "Anyone can view shared events by token" ON public.events
+  FOR SELECT USING (share_token IS NOT NULL AND share_token = current_setting('request.headers', true)::json->>'x-share-token');
+
+-- Public read access to files of shared events
+DROP POLICY IF EXISTS "Anyone can view files of shared events" ON public.event_files;
+CREATE POLICY "Anyone can view files of shared events" ON public.event_files
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.events e
+      WHERE e.id = event_id
+        AND e.share_token IS NOT NULL
+    )
+  );
+
+-- Public read access to attendance of shared events
+DROP POLICY IF EXISTS "Anyone can view attendance of shared events" ON public.attendance;
+CREATE POLICY "Anyone can view attendance of shared events" ON public.attendance
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.events e
+      WHERE e.id = event_id
+        AND e.share_token IS NOT NULL
+    )
+  );
+
+-- Public read access to notes of shared events
+DROP POLICY IF EXISTS "Anyone can view notes of shared events" ON public.event_notes;
+CREATE POLICY "Anyone can view notes of shared events" ON public.event_notes
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.events e
+      WHERE e.id = event_id
+        AND e.share_token IS NOT NULL
+    )
+  );
+
+-- Public read access to reports of shared events
+DROP POLICY IF EXISTS "Anyone can view reports of shared events" ON public.event_reports;
+CREATE POLICY "Anyone can view reports of shared events" ON public.event_reports
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.events e
+      WHERE e.id = event_id
+        AND e.share_token IS NOT NULL
+    )
+  );

@@ -12,6 +12,7 @@ import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import EventForm from '@/pages/EventForm';
 import EventDetail from '@/pages/EventDetail';
+import PublicEvent from '@/pages/PublicEvent';
 
 // Error component for missing configuration
 function ConfigError() {
@@ -81,6 +82,7 @@ function App() {
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/share/:token" element={<PublicEvent />} />
 
         {/* Protected routes */}
         <Route

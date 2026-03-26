@@ -16,11 +16,12 @@ import {
 import { 
   ArrowLeft, Edit, Trash2, Calendar, MapPin, Users, 
   Image, FileText, ClipboardList, MessageSquare, 
-  Upload, Plus, X, Check, Save, Eye, File
+  Upload, Plus, X, Check, Save, Eye, File, Share2, Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'react-toastify';
+import { QRCodeSVG } from 'qrcode.react';
 import './EventDetail.css';
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -80,6 +81,11 @@ export default function EventDetail() {
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
 
+  // Share
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
+
   useEffect(() => {
     if (id) {
       loadEvent();
@@ -97,6 +103,7 @@ export default function EventDetail() {
       setLoading(true);
       const data = await eventsAPI.get(id!);
       setEvent(data);
+      if (data.share_token) setShareToken(data.share_token);
     } catch (error) {
       toast.error('Erro ao carregar evento');
       navigate('/portfolio');
@@ -374,6 +381,52 @@ export default function EventDetail() {
     }
   };
 
+  // Share handlers
+  const handleShare = async () => {
+    if (shareToken) {
+      setShowShareModal(true);
+      return;
+    }
+
+    try {
+      setGeneratingToken(true);
+      const token = await eventsAPI.generateShareToken(id!);
+      setShareToken(token);
+      setShowShareModal(true);
+    } catch (error) {
+      toast.error('Erro ao gerar link de compartilhamento');
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  const getShareUrl = () => {
+    const base = window.location.origin;
+    return `${base}/SIEDU/share/${shareToken}`;
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      toast.success('Link copiado!');
+    } catch {
+      toast.error('Erro ao copiar link');
+    }
+  };
+
+  const handleRevokeShare = async () => {
+    if (!window.confirm('Revogar o compartilhamento? O QR Code atual deixará de funcionar.')) return;
+
+    try {
+      await eventsAPI.revokeShareToken(id!);
+      setShareToken(null);
+      setShowShareModal(false);
+      toast.success('Compartilhamento revogado');
+    } catch (error) {
+      toast.error('Erro ao revogar compartilhamento');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -405,6 +458,14 @@ export default function EventDetail() {
           </div>
         </div>
         <div className="header-actions">
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleShare}
+            disabled={generatingToken}
+          >
+            <Share2 size={18} />
+            {generatingToken ? 'Gerando...' : 'Compartilhar'}
+          </button>
           <Link to={`/events/${id}/edit`} className="btn btn-secondary">
             <Edit size={18} />
             Editar
@@ -966,6 +1027,60 @@ export default function EventDetail() {
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && shareToken && (
+        <div className="share-modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div className="share-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="share-modal-header">
+              <h2>Compartilhar Evento</h2>
+              <button className="btn btn-icon" onClick={() => setShowShareModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="share-modal-body">
+              <p className="share-description">
+                Escaneie o QR Code abaixo para acessar a página pública do evento com todas as informações, fotos, relatório e frequência.
+              </p>
+
+              <div className="qr-code-container">
+                <QRCodeSVG 
+                  value={getShareUrl()} 
+                  size={220}
+                  level="H"
+                  includeMargin
+                  bgColor="#ffffff"
+                  fgColor="#166534"
+                />
+              </div>
+
+              <div className="share-link-section">
+                <label>Link de compartilhamento:</label>
+                <div className="share-link-row">
+                  <input 
+                    type="text" 
+                    className="form-input share-link-input" 
+                    value={getShareUrl()} 
+                    readOnly 
+                  />
+                  <button className="btn btn-primary" onClick={handleCopyLink} title="Copiar link">
+                    <Copy size={18} />
+                    Copiar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="share-modal-footer">
+              <button className="btn btn-danger-outline" onClick={handleRevokeShare}>
+                <X size={18} />
+                Revogar Compartilhamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
