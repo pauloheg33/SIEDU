@@ -585,7 +585,7 @@ export const publicAPI = {
   getEventByToken: async (token: string): Promise<Event | null> => {
     const { data, error } = await supabase
       .from('events')
-      .select('*, creator:users!created_by(*)')
+      .select('*')
       .eq('share_token', token)
       .single();
 
