@@ -18,6 +18,22 @@ export const supabase = createClient<Database>(
   }
 );
 
+/**
+ * When the browser tab goes to the background, JS timers are throttled and
+ * the Supabase auto-refresh interval may never fire.  When the user comes
+ * back we force an immediate token check.  stopAutoRefresh() while hidden
+ * avoids wasted ticks that the browser would suppress anyway.
+ */
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}
+
 /* ---------- helpers ---------- */
 
 /**

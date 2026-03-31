@@ -6,6 +6,7 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 let hasInitializedAuth = false;
 let authUnsubscribe: (() => void) | null = null;
+let isIntentionalLogout = false;
 
 interface AuthStore {
   user: User | null;
@@ -70,6 +71,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
           }
         }
       } else if (event === 'SIGNED_OUT') {
+        if (!isIntentionalLogout) {
+          // Token refresh may have failed transiently (e.g. background tab).
+          // Wait a moment for startAutoRefresh() (visibilitychange) to recover.
+          await new Promise((r) => setTimeout(r, 1500));
+          const { data: { session: recovered } } = await supabase.auth.getSession();
+          if (recovered) {
+            // Session was recovered – do NOT clear auth state.
+            return;
+          }
+        }
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     });
@@ -107,11 +118,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   logout: async () => {
+    isIntentionalLogout = true;
     try {
       await authAPI.logout();
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      isIntentionalLogout = false;
       set({ user: null, isAuthenticated: false });
     }
   },
