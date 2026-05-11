@@ -22,6 +22,12 @@ const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
   [EventStatus.ARQUIVADO]: 'Arquivado',
 };
 
+const STATUS_COLORS: Record<EventStatus, string> = {
+  [EventStatus.PLANEJADO]: 'badge-warning',
+  [EventStatus.REALIZADO]: 'badge-success',
+  [EventStatus.ARQUIVADO]: 'badge-secondary',
+};
+
 const EVENT_TYPE_ORDER: EventType[] = [
   EventType.FORMACAO,
   EventType.PREMIACAO,
@@ -179,17 +185,36 @@ export default function Dashboard() {
                     {eventsOfType.length === 0 ? (
                       <div className="folder-empty">Nenhum evento neste tipo.</div>
                     ) : (
-                      <div className="folder-events">
+                      <div className="events-grid">
                         {eventsOfType.map((event) => (
                           <Link
                             key={event.id}
                             to={`/events/${event.id}`}
-                            className="folder-event-card"
+                            className="event-card"
                           >
-                            <div className="folder-event-title">{event.title}</div>
-                            <div className="folder-event-meta">
-                              <span>{EVENT_STATUS_LABELS[event.status]}</span>
-                              <span>{format(new Date(event.start_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                            <div className="event-header">
+                              <span className={`badge ${STATUS_COLORS[event.status]}`}>
+                                {EVENT_STATUS_LABELS[event.status]}
+                              </span>
+                              <span className="event-type">
+                                {EVENT_TYPE_LABELS[event.type]}
+                              </span>
+                            </div>
+
+                            <h3 className="event-title">{event.title}</h3>
+
+                            <div className="event-meta">
+                              <div className="event-date">
+                                <Calendar size={16} />
+                                {format(new Date(event.start_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </div>
+                              {event.location && (
+                                <div className="event-location">{event.location}</div>
+                              )}
+                            </div>
+
+                            <div className="event-footer">
+                              <span className="event-author">Por {event.creator?.name || 'Desconhecido'}</span>
                             </div>
                           </Link>
                         ))}
