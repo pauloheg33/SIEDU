@@ -16,7 +16,7 @@ import {
 import { 
   ArrowLeft, Edit, Trash2, Calendar, MapPin, Users, 
   Image, FileText, ClipboardList, MessageSquare, 
-  Upload, Plus, X, Check, Save, Eye, File, Share2, Copy
+  Upload, Plus, X, Check, Save, Eye, File, Share2, Copy, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -195,6 +195,17 @@ export default function EventDetail() {
     } catch (error) {
       toast.error('Erro ao excluir foto');
     }
+  };
+
+  const handleDownloadPhoto = (photo: EventFile) => {
+    const link = document.createElement('a');
+    link.href = photo.url;
+    link.download = photo.filename || 'download';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Download iniciado');
   };
 
   // Report handlers
@@ -628,15 +639,28 @@ export default function EventDetail() {
                         }
                       }}
                     />
-                    <button 
-                      className="delete-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePhoto(photo.id);
-                      }}
-                    >
-                      <X size={16} />
-                    </button>
+                    <div className="photo-actions">
+                      <button 
+                        className="download-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadPhoto(photo);
+                        }}
+                        title="Baixar foto"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button 
+                        className="delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePhoto(photo.id);
+                        }}
+                        title="Deletar foto"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
