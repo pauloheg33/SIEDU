@@ -28,6 +28,19 @@ const STATUS_COLORS: Record<EventStatus, string> = {
   [EventStatus.ARQUIVADO]: 'badge-secondary',
 };
 
+const EVENT_TYPE_ORDER: EventType[] = [
+  EventType.FORMACAO,
+  EventType.PREMIACAO,
+  EventType.ENCONTRO,
+  EventType.OUTRO,
+];
+
+type Filters = {
+  type: string;
+  status: string;
+  search: string;
+};
+
 export default function Dashboard() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,12 +59,12 @@ export default function Dashboard() {
     loadEvents().finally(() => clearTimeout(bailout));
   }, []);
 
-  const loadEvents = async () => {
+  const loadEvents = async (activeFilters: Filters = filters) => {
     try {
       const params: any = {};
-      if (filters.type) params.type = filters.type;
-      if (filters.status) params.status = filters.status;
-      if (filters.search) params.search = filters.search;
+      if (activeFilters.type) params.type = activeFilters.type;
+      if (activeFilters.status) params.status = activeFilters.status;
+      if (activeFilters.search) params.search = activeFilters.search;
 
       const data = await eventsAPI.list(params);
       setEvents(data);
@@ -70,6 +83,13 @@ export default function Dashboard() {
     loadEvents();
   };
 
+  const handleTypeSelect = (type: string) => {
+    const nextFilters = { ...filters, type };
+    setFilters(nextFilters);
+    setLoading(true);
+    loadEvents(nextFilters);
+  };
+
   return (
     <Layout>
       <div className="page-header">
@@ -86,40 +106,51 @@ export default function Dashboard() {
       {/* Filters */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div className="filters">
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Buscar eventos..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          />
-          
-          <select
-            className="form-select"
-            value={filters.type}
-            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-          >
-            <option value="">Todos os tipos</option>
-            {Object.entries(EVENT_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          <div className="filters-row">
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Buscar eventos..."
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            />
 
-          <select
-            className="form-select"
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          >
-            <option value="">Todos os status</option>
-            {Object.entries(EVENT_STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+            <select
+              className="form-select"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            >
+              <option value="">Todos os status</option>
+              {Object.entries(EVENT_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
 
-          <button className="btn btn-secondary" onClick={handleFilter}>
-            <Filter size={18} />
-            Filtrar
-          </button>
+            <button className="btn btn-secondary" onClick={handleFilter}>
+              <Filter size={18} />
+              Filtrar
+            </button>
+          </div>
+
+          <div className="folder-filters" role="tablist" aria-label="Filtros por tipo de evento">
+            <button
+              type="button"
+              className={`folder-button ${filters.type === '' ? 'active' : ''}`}
+              onClick={() => handleTypeSelect('')}
+            >
+              Todos os tipos
+            </button>
+            {EVENT_TYPE_ORDER.map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`folder-button ${filters.type === type ? 'active' : ''}`}
+                onClick={() => handleTypeSelect(type)}
+              >
+                {EVENT_TYPE_LABELS[type]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
