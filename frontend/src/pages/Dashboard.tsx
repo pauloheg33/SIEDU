@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout/Layout';
 import { eventsAPI } from '@/lib/api';
 import { Event, EventStatus, EventType } from '@/types';
-import { Calendar, Plus, Filter } from 'lucide-react';
+import { Calendar, Plus, Folder, ChevronDown, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'react-toastify';
@@ -22,12 +22,6 @@ const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
   [EventStatus.ARQUIVADO]: 'Arquivado',
 };
 
-const STATUS_COLORS: Record<EventStatus, string> = {
-  [EventStatus.PLANEJADO]: 'badge-warning',
-  [EventStatus.REALIZADO]: 'badge-success',
-  [EventStatus.ARQUIVADO]: 'badge-secondary',
-};
-
 const EVENT_TYPE_ORDER: EventType[] = [
   EventType.FORMACAO,
   EventType.PREMIACAO,
@@ -36,7 +30,6 @@ const EVENT_TYPE_ORDER: EventType[] = [
 ];
 
 type Filters = {
-  type: string;
   status: string;
   search: string;
 };
@@ -44,11 +37,16 @@ type Filters = {
 export default function Dashboard() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    type: '',
+  const [filters, setFilters] = useState<Filters>({
     status: '',
     search: '',
   });
+  const [openFolders, setOpenFolders] = useState<Record<EventType, boolean>>(() =>
+    EVENT_TYPE_ORDER.reduce((acc, type) => {
+      acc[type] = false;
+      return acc;
+    }, {} as Record<EventType, boolean>),
+  );
 
   useEffect(() => {
     // Safety net: if loadEvents hangs, force loading=false after 20 s
@@ -62,7 +60,6 @@ export default function Dashboard() {
   const loadEvents = async (activeFilters: Filters = filters) => {
     try {
       const params: any = {};
-      if (activeFilters.type) params.type = activeFilters.type;
       if (activeFilters.status) params.status = activeFilters.status;
       if (activeFilters.search) params.search = activeFilters.search;
 
@@ -83,12 +80,17 @@ export default function Dashboard() {
     loadEvents();
   };
 
-  const handleTypeSelect = (type: string) => {
-    const nextFilters = { ...filters, type };
-    setFilters(nextFilters);
-    setLoading(true);
-    loadEvents(nextFilters);
+  const toggleFolder = (type: EventType) => {
+    setOpenFolders((prev) => ({
+      ...prev,
+      [type]: !prev[type],
+    }));
   };
+
+  const eventsByType = EVENT_TYPE_ORDER.reduce((groups, type) => {
+    groups[type] = events.filter((event) => event.type === type);
+    return groups;
+  }, {} as Record<EventType, Event[]>);
 
   return (
     <Layout>
@@ -132,29 +134,9 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="folder-filters" role="tablist" aria-label="Filtros por tipo de evento">
-            <button
-              type="button"
-              className={`folder-button ${filters.type === '' ? 'active' : ''}`}
-              onClick={() => handleTypeSelect('')}
-            >
-              Todos os tipos
-            </button>
-            {EVENT_TYPE_ORDER.map((type) => (
-              <button
-                key={type}
-                type="button"
-                className={`folder-button ${filters.type === type ? 'active' : ''}`}
-                onClick={() => handleTypeSelect(type)}
-              >
-                {EVENT_TYPE_LABELS[type]}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* Events Grid */}
       {loading ? (
         <div className="loading">
           <div className="spinner" />
@@ -171,39 +153,53 @@ export default function Dashboard() {
           </Link>
         </div>
       ) : (
-        <div className="events-grid">
-          {events.map((event) => (
-            <Link
-              key={event.id}
-              to={`/events/${event.id}`}
-              className="event-card"
-            >
-              <div className="event-header">
-                <span className={`badge ${STATUS_COLORS[event.status]}`}>
-                  {EVENT_STATUS_LABELS[event.status]}
-                </span>
-                <span className="event-type">
-                  {EVENT_TYPE_LABELS[event.type]}
-                </span>
-              </div>
+        <div className="folders-container" role="tablist" aria-label="Pastas de tipo de evento">
+          {EVENT_TYPE_ORDER.map((type) => {
+            const eventsOfType = eventsByType[type] || [];
+            return (
+              <div key={type} className="folder-group">
+                <button
+                  type="button"
+                  className={`folder-header ${openFolders[type] ? 'open' : ''}`}
+                  onClick={() => toggleFolder(type)}
+                  aria-expanded={openFolders[type]}
+                >
+                  <div className="folder-icon">
+                    <Folder size={18} />
+                  </div>
+                  <div className="folder-details">
+                    <div className="folder-title">{EVENT_TYPE_LABELS[type]}</div>
+                    <div className="folder-count">{eventsOfType.length} evento{eventsOfType.length !== 1 ? 's' : ''}</div>
+                  </div>
+                  <ChevronDown size={18} className={`folder-chevron ${openFolders[type] ? 'open' : ''}`} />
+                </button>
 
-              <h3 className="event-title">{event.title}</h3>
-
-              <div className="event-meta">
-                <div className="event-date">
-                  <Calendar size={16} />
-                  {format(new Date(event.start_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                </div>
-                {event.location && (
-                  <div className="event-location">{event.location}</div>
+                {openFolders[type] && (
+                  <div className="folder-content">
+                    {eventsOfType.length === 0 ? (
+                      <div className="folder-empty">Nenhum evento neste tipo.</div>
+                    ) : (
+                      <div className="folder-events">
+                        {eventsOfType.map((event) => (
+                          <Link
+                            key={event.id}
+                            to={`/events/${event.id}`}
+                            className="folder-event-card"
+                          >
+                            <div className="folder-event-title">{event.title}</div>
+                            <div className="folder-event-meta">
+                              <span>{EVENT_STATUS_LABELS[event.status]}</span>
+                              <span>{format(new Date(event.start_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-
-              <div className="event-footer">
-                <span className="event-author">Por {event.creator?.name || 'Desconhecido'}</span>
-              </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </Layout>
