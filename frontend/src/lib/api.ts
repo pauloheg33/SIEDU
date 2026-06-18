@@ -15,12 +15,21 @@ import type {
   FileKind,
 } from '@/types';
 
-function getAppUrl(path: string) {
-  if (typeof window === 'undefined') return path;
+const DEFAULT_APP_URL = 'https://pauloheg33.github.io/SIEDU';
 
-  const basePath = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+function getAppUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${window.location.origin}${basePath}${normalizedPath}`;
+  const configuredBaseUrl = (import.meta.env.VITE_APP_URL || DEFAULT_APP_URL).replace(/\/+$/, '');
+
+  if (typeof window === 'undefined') {
+    return `${configuredBaseUrl}${normalizedPath}`;
+  }
+
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const runtimeBaseUrl = `${window.location.origin}${(import.meta.env.BASE_URL || '/').replace(/\/+$/, '')}`;
+  const effectiveBaseUrl = isLocalhost ? configuredBaseUrl : runtimeBaseUrl;
+
+  return `${effectiveBaseUrl}${normalizedPath}`;
 }
 
 // Auth

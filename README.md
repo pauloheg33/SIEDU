@@ -41,6 +41,7 @@ Configure os seguintes secrets no repositório:
 
 - `VITE_SUPABASE_URL` - URL do projeto Supabase
 - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase
+- `VITE_APP_URL` - URL pública da aplicação (ex: `https://pauloheg33.github.io/SIEDU`)
 
 ### 3. GitHub Pages
 
