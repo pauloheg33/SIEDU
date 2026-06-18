@@ -31,6 +31,9 @@ Sistema para gestão de evidências e eventos da Secretaria Municipal de Educaç
 1. Crie um projeto em [supabase.com](https://supabase.com)
 2. Execute o SQL em `supabase/migration.sql` no SQL Editor
 3. Copie a URL e Anon Key do projeto
+4. Em **Auth > URL Configuration**, adicione a URL de recuperação de senha:
+   - Produção: `https://pauloheg33.github.io/SIEDU/reset-password`
+   - Local: `http://localhost:3000/SIEDU/reset-password`
 
 ### 2. GitHub Secrets
 
@@ -52,6 +55,7 @@ O deploy é automático via GitHub Actions ao fazer push na branch `main`.
 ## 📋 Funcionalidades
 
 - ✅ Autenticação de usuários
+- ✅ Recuperação de senha por e-mail
 - ✅ Gestão de eventos (CRUD)
 - ✅ Upload de fotos e documentos
 - ✅ Controle de presença

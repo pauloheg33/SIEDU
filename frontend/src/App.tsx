@@ -9,6 +9,8 @@ import '@/styles/global.css';
 // Pages
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 import Dashboard from '@/pages/Dashboard';
 import EventForm from '@/pages/EventForm';
 import EventDetail from '@/pages/EventDetail';
@@ -82,6 +84,8 @@ function App() {
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share/:token" element={<PublicEvent />} />
 
         {/* Protected routes */}

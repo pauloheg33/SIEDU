@@ -15,6 +15,14 @@ import type {
   FileKind,
 } from '@/types';
 
+function getAppUrl(path: string) {
+  if (typeof window === 'undefined') return path;
+
+  const basePath = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${window.location.origin}${basePath}${normalizedPath}`;
+}
+
 // Auth
 export const authAPI = {
   register: async (data: { name: string; email: string; password: string }) => {
@@ -47,6 +55,28 @@ export const authAPI = {
 
   logout: async () => {
     const { error } = await withTimeout(supabase.auth.signOut(), 10_000, 'Tempo esgotado ao sair.');
+    if (error) throw error;
+  },
+
+  requestPasswordReset: async (email: string) => {
+    const { error } = await withTimeout(
+      supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: getAppUrl('/reset-password'),
+      }),
+      15_000,
+      'Tempo esgotado ao solicitar recuperação de senha.',
+    );
+
+    if (error) throw error;
+  },
+
+  updatePassword: async (password: string) => {
+    const { error } = await withTimeout(
+      supabase.auth.updateUser({ password }),
+      15_000,
+      'Tempo esgotado ao atualizar a senha.',
+    );
+
     if (error) throw error;
   },
 
