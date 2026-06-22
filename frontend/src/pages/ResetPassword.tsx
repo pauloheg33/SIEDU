@@ -16,11 +16,13 @@ export default function ResetPassword() {
 
   useEffect(() => {
     let isMounted = true;
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const startedFromRecoveryLink = hashParams.get('type') === 'recovery';
 
     const loadSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!isMounted) return;
-      setHasRecoverySession(!!session);
+      setHasRecoverySession(startedFromRecoveryLink && !!session);
       setIsCheckingSession(false);
     };
 
@@ -31,7 +33,7 @@ export default function ResetPassword() {
         setHasRecoverySession(true);
       } else if (event === 'SIGNED_OUT') {
         setHasRecoverySession(false);
-      } else if (session) {
+      } else if (startedFromRecoveryLink && session) {
         setHasRecoverySession(true);
       }
 

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { useAuthStore } from '@/store/authStore';
 import { supabaseConfigured } from '@/lib/supabase';
@@ -65,6 +65,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RecoveryRedirectHandler() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const isRecoveryLink = hashParams.get('type') === 'recovery';
+
+    if (isRecoveryLink && location.pathname !== '/reset-password') {
+      navigate('/reset-password', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
 function App() {
   const { initialize } = useAuthStore();
 
@@ -80,6 +96,7 @@ function App() {
 
   return (
     <BrowserRouter basename="/SIEDU">
+      <RecoveryRedirectHandler />
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />

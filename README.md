@@ -31,9 +31,10 @@ Sistema para gestão de evidências e eventos da Secretaria Municipal de Educaç
 1. Crie um projeto em [supabase.com](https://supabase.com)
 2. Execute o SQL em `supabase/migration.sql` no SQL Editor
 3. Copie a URL e Anon Key do projeto
-4. Em **Auth > URL Configuration**, adicione a URL de recuperação de senha:
-   - Produção: `https://pauloheg33.github.io/SIEDU/reset-password`
-   - Local: `http://localhost:3000/SIEDU/reset-password`
+4. Em **Auth > URL Configuration**, configure:
+   - `Site URL`: `https://pauloheg33.github.io/SIEDU/`
+   - Redirect de produção: `https://pauloheg33.github.io/SIEDU/reset-password`
+   - Redirect local: `http://localhost:3000/SIEDU/reset-password`
 
 ### 2. GitHub Secrets
 

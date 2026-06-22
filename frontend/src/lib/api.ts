@@ -15,7 +15,14 @@ import type {
   FileKind,
 } from '@/types';
 
-const PASSWORD_RESET_URL = 'https://pauloheg33.github.io/SIEDU/reset-password';
+function getPasswordResetUrl() {
+  if (typeof window === 'undefined') {
+    return 'https://pauloheg33.github.io/SIEDU/reset-password';
+  }
+
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  return new URL('reset-password', window.location.origin + baseUrl).toString();
+}
 
 // Auth
 export const authAPI = {
@@ -55,7 +62,7 @@ export const authAPI = {
   requestPasswordReset: async (email: string) => {
     const { error } = await withTimeout(
       supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: PASSWORD_RESET_URL,
+        redirectTo: getPasswordResetUrl(),
       }),
       15_000,
       'Tempo esgotado ao solicitar recuperação de senha.',
