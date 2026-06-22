@@ -74,7 +74,7 @@ export const authAPI = {
   updatePassword: async (password: string) => {
     const { error } = await withTimeout(
       supabase.auth.updateUser({ password }),
-      15_000,
+      30_000,
       'Tempo esgotado ao atualizar a senha.',
     );
 

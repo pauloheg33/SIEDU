@@ -41,7 +41,7 @@ export default function ResetPassword() {
       try {
         const { data: { session } } = await withTimeout(
           supabase.auth.getSession(),
-          8_000,
+          60_000,
           'A validação do link demorou mais do que o esperado.',
         );
         if (!isMounted) return;
@@ -99,14 +99,6 @@ export default function ResetPassword() {
 
     try {
       setIsSubmitting(true);
-      const { data: { session } } = await withTimeout(
-        supabase.auth.getSession(),
-        8_000,
-        'A sessão de recuperação não respondeu a tempo.',
-      );
-      if (!session) {
-        throw new Error('O link de recuperação expirou ou não foi validado. Solicite um novo link.');
-      }
       await authAPI.updatePassword(password);
       sessionStorage.removeItem(PASSWORD_RECOVERY_STORAGE_KEY);
       await authAPI.logout();
