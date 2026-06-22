@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       authUnsubscribe = null;
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    const handleAuthStateChange = async (event: AuthChangeEvent, session: Session | null) => {
       if (event === 'SIGNED_IN' && session) {
         try {
           const user = await withTimeout(authAPI.getUser(), 12_000, 'Falha ao carregar usuário.');
@@ -83,6 +83,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
         }
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      window.setTimeout(() => {
+        void handleAuthStateChange(event, session);
+      }, 0);
     });
 
     authUnsubscribe = () => subscription.unsubscribe();

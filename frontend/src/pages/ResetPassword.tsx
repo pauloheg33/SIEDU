@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { KeyRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { authAPI } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+import { supabase, withTimeout } from '@/lib/supabase';
 import './Auth.css';
 
 export default function ResetPassword() {
@@ -18,12 +18,35 @@ export default function ResetPassword() {
     let isMounted = true;
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const startedFromRecoveryLink = hashParams.get('type') === 'recovery';
+    const hasRecoveryTokens = !!(
+      hashParams.get('access_token')
+      || hashParams.get('refresh_token')
+      || hashParams.get('token_hash')
+      || hashParams.get('code')
+    );
+
+    if (startedFromRecoveryLink && hasRecoveryTokens) {
+      setHasRecoverySession(true);
+      setIsCheckingSession(false);
+    }
 
     const loadSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      setHasRecoverySession(startedFromRecoveryLink && !!session);
-      setIsCheckingSession(false);
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          8_000,
+          'A validação do link demorou mais do que o esperado.',
+        );
+        if (!isMounted) return;
+        setHasRecoverySession(startedFromRecoveryLink && (!!session || hasRecoveryTokens));
+      } catch {
+        if (!isMounted) return;
+        setHasRecoverySession(startedFromRecoveryLink && hasRecoveryTokens);
+      } finally {
+        if (isMounted) {
+          setIsCheckingSession(false);
+        }
+      }
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -33,7 +56,7 @@ export default function ResetPassword() {
         setHasRecoverySession(true);
       } else if (event === 'SIGNED_OUT') {
         setHasRecoverySession(false);
-      } else if (startedFromRecoveryLink && session) {
+      } else if (startedFromRecoveryLink && (session || hasRecoveryTokens)) {
         setHasRecoverySession(true);
       }
 
@@ -63,6 +86,14 @@ export default function ResetPassword() {
 
     try {
       setIsSubmitting(true);
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        8_000,
+        'A sessão de recuperação não respondeu a tempo.',
+      );
+      if (!session) {
+        throw new Error('O link de recuperação expirou ou não foi validado. Solicite um novo link.');
+      }
       await authAPI.updatePassword(password);
       await authAPI.logout();
       toast.success('Senha atualizada com sucesso. Faça login novamente.');
