@@ -6,6 +6,8 @@ import { authAPI } from '@/lib/api';
 import { supabase, withTimeout } from '@/lib/supabase';
 import './Auth.css';
 
+const PASSWORD_RECOVERY_STORAGE_KEY = 'siedu:password-recovery';
+
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
@@ -24,8 +26,13 @@ export default function ResetPassword() {
       || hashParams.get('token_hash')
       || hashParams.get('code')
     );
+    const hasRecoveryFlag = sessionStorage.getItem(PASSWORD_RECOVERY_STORAGE_KEY) === 'pending';
 
-    if (startedFromRecoveryLink && hasRecoveryTokens) {
+    if (startedFromRecoveryLink || hasRecoveryTokens) {
+      sessionStorage.setItem(PASSWORD_RECOVERY_STORAGE_KEY, 'pending');
+    }
+
+    if ((startedFromRecoveryLink && hasRecoveryTokens) || hasRecoveryFlag) {
       setHasRecoverySession(true);
       setIsCheckingSession(false);
     }
@@ -38,10 +45,15 @@ export default function ResetPassword() {
           'A validação do link demorou mais do que o esperado.',
         );
         if (!isMounted) return;
-        setHasRecoverySession(startedFromRecoveryLink && (!!session || hasRecoveryTokens));
+        setHasRecoverySession(
+          startedFromRecoveryLink
+          || hasRecoveryTokens
+          || hasRecoveryFlag
+          || !!session,
+        );
       } catch {
         if (!isMounted) return;
-        setHasRecoverySession(startedFromRecoveryLink && hasRecoveryTokens);
+        setHasRecoverySession(startedFromRecoveryLink || hasRecoveryTokens || hasRecoveryFlag);
       } finally {
         if (isMounted) {
           setIsCheckingSession(false);
@@ -53,10 +65,11 @@ export default function ResetPassword() {
       if (!isMounted) return;
 
       if (event === 'PASSWORD_RECOVERY') {
+        sessionStorage.setItem(PASSWORD_RECOVERY_STORAGE_KEY, 'pending');
         setHasRecoverySession(true);
       } else if (event === 'SIGNED_OUT') {
         setHasRecoverySession(false);
-      } else if (startedFromRecoveryLink && (session || hasRecoveryTokens)) {
+      } else if (startedFromRecoveryLink || hasRecoveryTokens || hasRecoveryFlag || session) {
         setHasRecoverySession(true);
       }
 
@@ -95,6 +108,7 @@ export default function ResetPassword() {
         throw new Error('O link de recuperação expirou ou não foi validado. Solicite um novo link.');
       }
       await authAPI.updatePassword(password);
+      sessionStorage.removeItem(PASSWORD_RECOVERY_STORAGE_KEY);
       await authAPI.logout();
       toast.success('Senha atualizada com sucesso. Faça login novamente.');
       navigate('/login');

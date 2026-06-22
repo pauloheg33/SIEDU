@@ -72,9 +72,20 @@ function RecoveryRedirectHandler() {
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const isRecoveryLink = hashParams.get('type') === 'recovery';
+    const recoveryHash = window.location.hash;
+
+    if (isRecoveryLink) {
+      sessionStorage.setItem('siedu:password-recovery', 'pending');
+    }
 
     if (isRecoveryLink && location.pathname !== '/reset-password') {
-      navigate('/reset-password', { replace: true });
+      navigate(
+        {
+          pathname: '/reset-password',
+          hash: recoveryHash,
+        },
+        { replace: true },
+      );
     }
   }, [location.pathname, navigate]);
 
