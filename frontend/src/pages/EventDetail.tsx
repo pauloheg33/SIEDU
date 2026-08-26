@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Layout from '@/components/Layout/Layout';
-import { eventsAPI, filesAPI, attendanceAPI, notesAPI, reportsAPI } from '@/lib/api';
+import { eventsAPI, filesAPI, attendanceAPI, notesAPI, reportsAPI, collaboratorsAPI, usersAPI } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 import {
   Event,
   EventFile,
@@ -12,11 +14,15 @@ import {
   EventStatus,
   FileKind,
   FileScope,
+  EventCollaborator,
+  CollaborationRole,
+  User,
+  UserRole,
 } from '@/types';
 import { 
   ArrowLeft, Edit, Trash2, Calendar, MapPin, Users, 
   Image, FileText, ClipboardList, MessageSquare, 
-  Upload, Plus, X, Check, Save, Eye, File, Share2, Copy, Download
+  Upload, Plus, X, Check, Save, Eye, File, Share2, Copy, Download, UserPlus, Shield, UserRound
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,19 +43,32 @@ const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
   [EventStatus.ARQUIVADO]: 'Arquivado',
 };
 
-type TabType = 'overview' | 'photos' | 'report' | 'attendance' | 'notes';
+const EVENT_STATUS_COLORS: Record<EventStatus, string> = {
+  [EventStatus.PLANEJADO]: 'badge-warning',
+  [EventStatus.REALIZADO]: 'badge-success',
+  [EventStatus.ARQUIVADO]: 'badge-secondary',
+};
+
+type TabType = 'overview' | 'photos' | 'report' | 'attendance' | 'notes' | 'collaborators';
 
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
   
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedEvent = queryClient.getQueryData<Event>(['event', id]);
+  const [event, setEvent] = useState<Event | null>(cachedEvent || null);
+  const [loading, setLoading] = useState(!cachedEvent);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [tabLoading, setTabLoading] = useState(false);
+  const [tabError, setTabError] = useState('');
   
   // Photos
   const [photos, setPhotos] = useState<EventFile[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [failedPhotoFiles, setFailedPhotoFiles] = useState<File[]>([]);
+  const [photoUploadStatus, setPhotoUploadStatus] = useState<Array<{ key: string; name: string; status: 'pending' | 'uploading' | 'complete' | 'error' }>>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<EventFile | null>(null);
   
   // Report (Relatório)
@@ -86,9 +105,17 @@ export default function EventDetail() {
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [generatingToken, setGeneratingToken] = useState(false);
 
+  // Collaboration
+  const [collaborators, setCollaborators] = useState<EventCollaborator[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [selectedCollaborator, setSelectedCollaborator] = useState('');
+  const [selectedRole, setSelectedRole] = useState<CollaborationRole>(CollaborationRole.EDITOR);
+  const [savingCollaborator, setSavingCollaborator] = useState(false);
+
   useEffect(() => {
     if (id) {
       loadEvent();
+      collaboratorsAPI.list(id).then(setCollaborators).catch(() => setCollaborators([]));
     }
   }, [id]);
 
@@ -100,13 +127,14 @@ export default function EventDetail() {
 
   const loadEvent = async () => {
     try {
-      setLoading(true);
+      if (!event) setLoading(true);
       const data = await eventsAPI.get(id!);
       setEvent(data);
+      queryClient.setQueryData(['event', id], data);
       if (data.share_token) setShareToken(data.share_token);
     } catch (error) {
       toast.error('Erro ao carregar evento');
-      navigate('/portfolio');
+      navigate('/events');
     } finally {
       setLoading(false);
     }
@@ -114,33 +142,55 @@ export default function EventDetail() {
 
   const loadTabData = async () => {
     try {
+      setTabLoading(activeTab !== 'overview');
+      setTabError('');
       switch (activeTab) {
-        case 'photos':
+        case 'photos': {
           const photosData = await filesAPI.list(id!, FileKind.PHOTO);
           setPhotos(photosData);
           break;
-        case 'report':
-          const reportData = await reportsAPI.get(id!);
+        }
+        case 'report': {
+          const [reportData, reportPdfFiles, reportPptFiles] = await Promise.all([
+            reportsAPI.get(id!),
+            filesAPI.list(id!, FileKind.DOC, FileScope.REPORT_PDF),
+            filesAPI.list(id!, FileKind.DOC, FileScope.REPORT_PPT),
+          ]);
           setReport(reportData);
           setReportContent(reportData?.content || '');
-          const reportPdfFiles = await filesAPI.list(id!, FileKind.DOC, FileScope.REPORT_PDF);
           setReportPdfs(reportPdfFiles);
-          const reportPptFiles = await filesAPI.list(id!, FileKind.DOC, FileScope.REPORT_PPT);
           setReportPpts(reportPptFiles);
           break;
-        case 'attendance':
-          const attendanceData = await attendanceAPI.list(id!);
+        }
+        case 'attendance': {
+          const [attendanceData, pdfFiles] = await Promise.all([
+            attendanceAPI.list(id!),
+            filesAPI.list(id!, FileKind.DOC, FileScope.ATTENDANCE_PDF),
+          ]);
           setAttendance(attendanceData);
-          const pdfFiles = await filesAPI.list(id!, FileKind.DOC, FileScope.ATTENDANCE_PDF);
           setAttendancePdfs(pdfFiles);
           break;
-        case 'notes':
+        }
+        case 'notes': {
           const notesData = await notesAPI.list(id!);
           setNotes(notesData);
           break;
+        }
+        case 'collaborators': {
+          const [collaboratorData, usersData] = await Promise.all([
+            collaboratorsAPI.list(id!),
+            usersAPI.list(),
+          ]);
+          setCollaborators(collaboratorData);
+          setAvailableUsers(usersData.filter((user) => user.is_active));
+          break;
+        }
       }
     } catch (error) {
       console.error('Error loading tab data:', error);
+      setTabError(error instanceof Error ? error.message : 'Não foi possível carregar esta seção.');
+    } finally {
+      setTabLoading(false);
     }
   };
 
@@ -149,27 +199,43 @@ export default function EventDetail() {
     
     try {
       await eventsAPI.delete(id!);
+      queryClient.removeQueries({ queryKey: ['event', id] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Evento excluído com sucesso');
-      navigate('/portfolio');
+      navigate('/events');
     } catch (error) {
       toast.error('Erro ao excluir evento');
     }
   };
 
   // Photo handlers
+  const uploadPhotos = async (files: File[]) => {
+    if (!files.length) return;
+    const fileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
+    setPhotoUploadStatus(files.map((file) => ({ key: fileKey(file), name: file.name, status: 'pending' })));
+    try {
+      setUploadingPhotos(true);
+      const uploaded = await filesAPI.upload(id!, files, FileKind.PHOTO, FileScope.UNSCOPED, (file, status) => {
+        setPhotoUploadStatus((current) => current.map((item) => item.key === fileKey(file) ? { ...item, status } : item));
+      });
+      setPhotos((current) => [...uploaded, ...current]);
+      setFailedPhotoFiles([]);
+      toast.success('Fotos enviadas com sucesso!');
+    } catch (error: any) {
+      if (error?.uploadedFiles?.length) setPhotos((current) => [...error.uploadedFiles, ...current]);
+      setFailedPhotoFiles(error?.failedFiles || files);
+      toast.error(error?.message || 'Erro ao enviar fotos');
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
-
     try {
-      setUploadingPhotos(true);
-      await filesAPI.upload(id!, Array.from(files), FileKind.PHOTO);
-      toast.success('Fotos enviadas com sucesso!');
-      loadTabData();
-    } catch (error) {
-      toast.error('Erro ao enviar fotos');
+      await uploadPhotos(Array.from(files));
     } finally {
-      setUploadingPhotos(false);
       e.target.value = '';
     }
   };
@@ -221,9 +287,9 @@ export default function EventDetail() {
 
     try {
       setUploadingReportPdf(true);
-      await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.REPORT_PDF);
+      const [uploaded] = await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.REPORT_PDF);
+      setReportPdfs((current) => [uploaded, ...current]);
       toast.success('PDF do relatório enviado com sucesso!');
-      loadTabData();
     } catch (error) {
       toast.error('Erro ao enviar PDF do relatório');
     } finally {
@@ -257,9 +323,9 @@ export default function EventDetail() {
 
     try {
       setUploadingReportPpt(true);
-      await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.REPORT_PPT);
+      const [uploaded] = await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.REPORT_PPT);
+      setReportPpts((current) => [uploaded, ...current]);
       toast.success('PPT do relatório enviado com sucesso!');
-      loadTabData();
     } catch (error) {
       toast.error('Erro ao enviar PPT do relatório');
     } finally {
@@ -307,11 +373,11 @@ export default function EventDetail() {
     }
 
     try {
-      await attendanceAPI.create(id!, newAttendee);
+      const created = await attendanceAPI.create(id!, newAttendee);
+      setAttendance((current) => [...current, created].sort((a, b) => a.person_name.localeCompare(b.person_name)));
       toast.success('Participante adicionado');
       setNewAttendee({ person_name: '', person_role: '', school: '', present: true });
       setShowAddAttendee(false);
-      loadTabData();
     } catch (error) {
       toast.error('Erro ao adicionar participante');
     }
@@ -340,9 +406,9 @@ export default function EventDetail() {
 
     try {
       setUploadingPdf(true);
-      await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.ATTENDANCE_PDF);
+      const [uploaded] = await filesAPI.upload(id!, [file], FileKind.DOC, FileScope.ATTENDANCE_PDF);
+      setAttendancePdfs((current) => [uploaded, ...current]);
       toast.success('PDF de frequência enviado com sucesso!');
-      loadTabData();
     } catch (error) {
       toast.error('Erro ao enviar PDF');
     } finally {
@@ -370,10 +436,10 @@ export default function EventDetail() {
 
     try {
       setSavingNote(true);
-      await notesAPI.create(id!, { text: newNote });
+      const created = await notesAPI.create(id!, { text: newNote });
+      setNotes((current) => [created, ...current]);
       toast.success('Observação adicionada');
       setNewNote('');
-      loadTabData();
     } catch (error) {
       toast.error('Erro ao adicionar observação');
     } finally {
@@ -398,6 +464,8 @@ export default function EventDetail() {
       setShowShareModal(true);
       return;
     }
+
+    if (!window.confirm('O link público mostrará todos os dados do evento, incluindo frequência, observações, relatórios e arquivos. Deseja ativar o compartilhamento?')) return;
 
     try {
       setGeneratingToken(true);
@@ -438,6 +506,41 @@ export default function EventDetail() {
     }
   };
 
+  const currentCollaboration = collaborators.find((item) => item.user_id === currentUser?.id);
+  const isOwner = event?.created_by === currentUser?.id;
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
+  const canManage = Boolean(isOwner || isAdmin);
+  const canEdit = Boolean(canManage || currentCollaboration?.role === CollaborationRole.EDITOR);
+
+  const handleSaveCollaborator = async () => {
+    if (!selectedCollaborator) {
+      toast.error('Selecione um usuário.');
+      return;
+    }
+    try {
+      setSavingCollaborator(true);
+      const saved = await collaboratorsAPI.upsert(id!, selectedCollaborator, selectedRole);
+      setCollaborators((current) => [...current.filter((item) => item.user_id !== saved.user_id), saved]);
+      setSelectedCollaborator('');
+      toast.success('Colaborador adicionado.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível adicionar o colaborador.');
+    } finally {
+      setSavingCollaborator(false);
+    }
+  };
+
+  const handleRemoveCollaborator = async (userId: string) => {
+    if (!window.confirm('Remover este colaborador do evento?')) return;
+    try {
+      await collaboratorsAPI.remove(id!, userId);
+      setCollaborators((current) => current.filter((item) => item.user_id !== userId));
+      toast.success('Colaborador removido.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível remover o colaborador.');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -456,19 +559,20 @@ export default function EventDetail() {
       {/* Header */}
       <div className="event-detail-header">
         <div className="header-left">
-          <button className="btn btn-ghost" onClick={() => navigate('/portfolio')}>
+          <button className="btn btn-ghost" onClick={() => navigate('/events')}>
             <ArrowLeft size={20} />
             Voltar
           </button>
           <div className="event-info">
             <div className="event-badges">
               <span className="badge badge-primary">{EVENT_TYPE_LABELS[event.type]}</span>
-              <span className="badge badge-secondary">{EVENT_STATUS_LABELS[event.status]}</span>
+              <span className={`badge ${EVENT_STATUS_COLORS[event.status]}`}>{EVENT_STATUS_LABELS[event.status]}</span>
             </div>
             <h1>{event.title}</h1>
           </div>
         </div>
         <div className="header-actions">
+          {canManage && (
           <button 
             className="btn btn-secondary" 
             onClick={handleShare}
@@ -477,14 +581,19 @@ export default function EventDetail() {
             <Share2 size={18} />
             {generatingToken ? 'Gerando...' : 'Compartilhar'}
           </button>
+          )}
+          {canEdit && (
           <Link to={`/events/${id}/edit`} className="btn btn-secondary">
             <Edit size={18} />
             Editar
           </Link>
+          )}
+          {canManage && (
           <button className="btn btn-danger" onClick={handleDeleteEvent}>
             <Trash2 size={18} />
             Excluir
           </button>
+          )}
         </div>
       </div>
 
@@ -525,10 +634,22 @@ export default function EventDetail() {
           <MessageSquare size={18} />
           Observações
         </button>
+        <button
+          className={`tab ${activeTab === 'collaborators' ? 'active' : ''}`}
+          onClick={() => setActiveTab('collaborators')}
+        >
+          <UserRound size={18} />
+          Colaboradores
+        </button>
       </div>
 
       {/* Tab Content */}
-      <div className="tab-content">
+      <div className={`tab-content ${canEdit ? '' : 'read-only'}`}>
+        {tabLoading && <div className="tab-feedback"><span className="spinner" /><span>Carregando seção...</span></div>}
+        {tabError && <div className="tab-error"><span>{tabError}</span><button className="btn btn-secondary btn-sm" onClick={loadTabData}>Tentar novamente</button></div>}
+        {!canEdit && activeTab !== 'overview' && activeTab !== 'collaborators' && (
+          <div className="read-only-notice"><Eye size={17} />Você possui acesso somente para leitura neste evento.</div>
+        )}
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="overview-tab">
@@ -614,6 +735,22 @@ export default function EventDetail() {
                 />
               </label>
             </div>
+
+            {photoUploadStatus.length > 0 && (
+              <div className="upload-status-list" aria-live="polite">
+                {photoUploadStatus.map((item) => (
+                  <div className={`upload-status upload-status-${item.status}`} key={item.key}>
+                    <span>{item.name}</span>
+                    <strong>{item.status === 'pending' ? 'Na fila' : item.status === 'uploading' ? 'Enviando' : item.status === 'complete' ? 'Concluído' : 'Falhou'}</strong>
+                  </div>
+                ))}
+                {failedPhotoFiles.length > 0 && !uploadingPhotos && (
+                  <button className="btn btn-secondary" type="button" onClick={() => uploadPhotos(failedPhotoFiles)}>
+                    Tentar novamente somente os que falharam
+                  </button>
+                )}
+              </div>
+            )}
 
             {photos.length === 0 ? (
               <div className="empty-state">
@@ -1050,6 +1187,45 @@ export default function EventDetail() {
             )}
           </div>
         )}
+
+        {activeTab === 'collaborators' && (
+          <div className="collaborators-tab">
+            <div className="collaboration-heading">
+              <div><h2>Colaboradores do evento</h2><p>Defina quem pode editar ou apenas consultar este conteúdo.</p></div>
+              <span className="badge badge-primary"><Shield size={14} />{collaborators.length + 1} pessoa(s)</span>
+            </div>
+
+            {canManage && (
+              <div className="collaborator-form card">
+                <div className="collaborator-select">
+                  <label className="form-label" htmlFor="collaborator-user">Usuário</label>
+                  <select id="collaborator-user" className="form-select" value={selectedCollaborator} onChange={(e) => setSelectedCollaborator(e.target.value)}>
+                    <option value="">Selecione um usuário</option>
+                    {availableUsers.filter((user) => user.id !== event.created_by && !collaborators.some((item) => item.user_id === user.id)).map((user) => <option key={user.id} value={user.id}>{user.name} — {user.email}</option>)}
+                  </select>
+                </div>
+                <div><label className="form-label" htmlFor="collaborator-role">Permissão</label><select id="collaborator-role" className="form-select" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as CollaborationRole)}><option value={CollaborationRole.EDITOR}>Pode editar</option><option value={CollaborationRole.VIEWER}>Somente leitura</option></select></div>
+                <button className="btn btn-primary" disabled={savingCollaborator || !selectedCollaborator} onClick={handleSaveCollaborator}>{savingCollaborator ? <span className="spinner-small" /> : <UserPlus size={17} />}Adicionar</button>
+              </div>
+            )}
+
+            <div className="collaborator-list">
+              <div className="collaborator-row owner-row">
+                <span className="collaborator-avatar"><UserRound size={18} /></span>
+                <span className="collaborator-copy"><strong>{event.creator?.name || 'Proprietário do evento'}</strong><small>{event.creator?.email || 'Criador original'}</small></span>
+                <span className="badge badge-success">Proprietário</span>
+              </div>
+              {collaborators.map((collaborator) => (
+                <div className="collaborator-row" key={collaborator.user_id}>
+                  <span className="collaborator-avatar"><UserRound size={18} /></span>
+                  <span className="collaborator-copy"><strong>{collaborator.user?.name || 'Usuário'}</strong><small>{collaborator.user?.email || ''}</small></span>
+                  <select className="form-select compact-collaborator-role" disabled={!canManage || savingCollaborator} value={collaborator.role} onChange={async (e) => { setSavingCollaborator(true); try { const saved = await collaboratorsAPI.upsert(id!, collaborator.user_id, e.target.value as CollaborationRole); setCollaborators((current) => current.map((item) => item.user_id === saved.user_id ? saved : item)); toast.success('Permissão atualizada.'); } catch (error) { toast.error(error instanceof Error ? error.message : 'Erro ao atualizar permissão.'); } finally { setSavingCollaborator(false); } }}><option value={CollaborationRole.EDITOR}>Editor</option><option value={CollaborationRole.VIEWER}>Leitor</option></select>
+                  {canManage && <button className="btn btn-ghost btn-sm collaborator-remove" onClick={() => handleRemoveCollaborator(collaborator.user_id)}><X size={16} />Remover</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Share Modal */}
@@ -1067,6 +1243,7 @@ export default function EventDetail() {
               <p className="share-description">
                 Escaneie o QR Code abaixo para acessar a página pública do evento com todas as informações, fotos, relatório e frequência.
               </p>
+              <div className="share-warning"><Shield size={18} /><span>Quem tiver este link poderá visualizar também nomes da frequência, observações, relatórios e arquivos. Compartilhe somente com pessoas autorizadas.</span></div>
 
               <div className="qr-code-container">
                 <QRCodeSVG 
@@ -1075,7 +1252,7 @@ export default function EventDetail() {
                   level="H"
                   includeMargin
                   bgColor="#ffffff"
-                  fgColor="#166534"
+                  fgColor="#176b4d"
                 />
               </div>
 

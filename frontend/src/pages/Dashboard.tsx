@@ -1,19 +1,19 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '@/components/Layout/Layout';
-import { eventsAPI } from '@/lib/api';
-import { Event, EventStatus, EventType } from '@/types';
-import { Calendar, Plus, Folder, ChevronDown, Filter } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Archive, CalendarDays, ChevronLeft, ChevronRight, Folder, Grid2X2, List, MapPin, Plus, Search, SlidersHorizontal, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'react-toastify';
+import Layout from '@/components/Layout/Layout';
+import { eventsAPI } from '@/lib/api';
+import { Event, EventLibraryScope, EventSort, EventStatus, EventType } from '@/types';
 import './Dashboard.css';
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
   [EventType.FORMACAO]: 'Formação',
   [EventType.PREMIACAO]: 'Premiação',
   [EventType.ENCONTRO]: 'Visita de Acompanhamento',
-  [EventType.OUTRO]: 'Outro',
+  [EventType.OUTRO]: 'Outros',
 };
 
 const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
@@ -28,205 +28,177 @@ const STATUS_COLORS: Record<EventStatus, string> = {
   [EventStatus.ARQUIVADO]: 'badge-secondary',
 };
 
-const EVENT_TYPE_ORDER: EventType[] = [
-  EventType.FORMACAO,
-  EventType.PREMIACAO,
-  EventType.ENCONTRO,
-  EventType.OUTRO,
-];
-
-type Filters = {
-  status: string;
-  search: string;
+const TYPE_ORDER = [EventType.FORMACAO, EventType.PREMIACAO, EventType.ENCONTRO, EventType.OUTRO];
+const SCOPE_TITLES: Record<EventLibraryScope, { title: string; description: string }> = {
+  mine: { title: 'Meus eventos', description: 'Eventos criados por você' },
+  shared: { title: 'Compartilhados comigo', description: 'Eventos em que você participa como editor ou leitor' },
+  archived: { title: 'Arquivados', description: 'Histórico de eventos arquivados' },
 };
 
-export default function Dashboard() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Filters>({
-    status: '',
-    search: '',
-  });
-  const [openFolders, setOpenFolders] = useState<Record<EventType, boolean>>(() =>
-    EVENT_TYPE_ORDER.reduce((acc, type) => {
-      acc[type] = false;
-      return acc;
-    }, {} as Record<EventType, boolean>),
+function EventCard({ event, view }: { event: Event; view: 'grid' | 'list' }) {
+  return (
+    <Link to={`/events/${event.id}`} className={`event-card event-card-${view}`}>
+      <div className="event-card-icon"><CalendarDays size={22} /></div>
+      <div className="event-card-main">
+        <div className="event-card-badges">
+          <span className={`badge ${STATUS_COLORS[event.status]}`}>{EVENT_STATUS_LABELS[event.status]}</span>
+          <span className="event-type-label">{EVENT_TYPE_LABELS[event.type]}</span>
+        </div>
+        <h3>{event.title}</h3>
+        <div className="event-card-meta">
+          <span><CalendarDays size={15} />{format(new Date(event.start_at), "dd MMM yyyy, HH:mm", { locale: ptBR })}</span>
+          {event.location && <span><MapPin size={15} />{event.location}</span>}
+        </div>
+      </div>
+      <div className="event-card-owner">
+        <Users size={15} />
+        <span>{event.creator?.name || 'Equipe SIEDU'}</span>
+      </div>
+    </Link>
   );
+}
+
+function LibrarySkeleton() {
+  return <div className="events-grid">{Array.from({ length: 6 }).map((_, index) => <div className="event-skeleton skeleton" key={index} />)}</div>;
+}
+
+export default function Dashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scope = (searchParams.get('scope') as EventLibraryScope) || 'mine';
+  const selectedType = (searchParams.get('type') as EventType | null) || undefined;
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const status = (searchParams.get('status') as EventStatus | null) || undefined;
+  const sort = (searchParams.get('sort') as EventSort | null) || 'newest';
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
+  const [view, setView] = useState<'grid' | 'list'>(() => (localStorage.getItem('siedu:event-view') === 'list' ? 'list' : 'grid'));
 
   useEffect(() => {
-    // Safety net: if loadEvents hangs, force loading=false after 20 s
-    const bailout = setTimeout(() => {
-      setLoading(false);
-      toast.error('Tempo de conexão esgotado. Verifique sua internet e recarregue a página.');
-    }, 20_000);
-    loadEvents().finally(() => clearTimeout(bailout));
-  }, []);
+    const timeout = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
 
-  const loadEvents = async (activeFilters: Filters = filters) => {
-    try {
-      const params: any = {};
-      if (activeFilters.status) params.status = activeFilters.status;
-      if (activeFilters.search) params.search = activeFilters.search;
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (debouncedSearch) next.set('q', debouncedSearch); else next.delete('q');
+    next.delete('page');
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+  }, [debouncedSearch]);
 
-      const data = await eventsAPI.list(params);
-      setEvents(data);
-    } catch (error: any) {
-      const isAbort = error?.name === 'AbortError' || String(error?.message).toLowerCase().includes('abort');
-      toast.error(isAbort
-        ? 'Tempo de conexão esgotado. Verifique sua internet e tente novamente.'
-        : (error?.message || 'Erro ao carregar eventos'));
-    } finally {
-      setLoading(false);
-    }
+  const queryParams = useMemo(() => ({
+    scope,
+    type: selectedType,
+    status,
+    search: debouncedSearch || undefined,
+    sort,
+    page,
+    pageSize: 50,
+  }), [scope, selectedType, status, debouncedSearch, sort, page]);
+
+  const eventsQuery = useQuery({
+    queryKey: ['events', queryParams],
+    queryFn: () => eventsAPI.listPaginated(queryParams),
+    placeholderData: (previous) => previous,
+  });
+
+  const updateParam = (name: string, value?: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(name, value); else next.delete(name);
+    if (name !== 'page') next.delete('page');
+    setSearchParams(next);
   };
 
-  const handleFilter = () => {
-    setLoading(true);
-    loadEvents();
+  const changeView = (next: 'grid' | 'list') => {
+    setView(next);
+    localStorage.setItem('siedu:event-view', next);
   };
 
-  const toggleFolder = (type: EventType) => {
-    setOpenFolders((prev) => ({
-      ...prev,
-      [type]: !prev[type],
-    }));
-  };
-
-  const eventsByType = EVENT_TYPE_ORDER.reduce((groups, type) => {
-    groups[type] = events.filter((event) => event.type === type);
-    return groups;
-  }, {} as Record<EventType, Event[]>);
+  const totalPages = Math.max(1, Math.ceil((eventsQuery.data?.count || 0) / 50));
+  const events = eventsQuery.data?.data || [];
+  const scopeCopy = SCOPE_TITLES[scope] || SCOPE_TITLES.mine;
 
   return (
     <Layout>
-      <div className="page-header">
+      <div className="library-header">
         <div>
-          <h1 className="page-title">Portifólio</h1>
-          <p className="page-subtitle">SIEDU - Gerencie eventos e evidências</p>
+          <div className="breadcrumbs"><span>Biblioteca</span><ChevronRight size={14} />{selectedType && <span>{EVENT_TYPE_LABELS[selectedType]}</span>}</div>
+          <h1>{selectedType ? EVENT_TYPE_LABELS[selectedType] : scopeCopy.title}</h1>
+          <p>{selectedType ? `Eventos organizados na pasta ${EVENT_TYPE_LABELS[selectedType]}` : scopeCopy.description}</p>
         </div>
-        <Link to="/events/new" className="btn btn-primary">
-          <Plus size={20} />
-          Novo Evento
-        </Link>
+        <Link to="/events/new" className="btn btn-primary"><Plus size={18} />Novo evento</Link>
       </div>
 
-      {/* Filters */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <div className="filters">
-          <div className="filters-row">
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Buscar eventos..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            />
+      <section className="library-search" aria-label="Pesquisa e filtros">
+        <label className="search-box">
+          <Search size={19} />
+          <span className="sr-only">Buscar eventos</span>
+          <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar eventos por título..." />
+        </label>
+        <div className="filter-control">
+          <SlidersHorizontal size={17} />
+          <select aria-label="Filtrar por status" value={status || ''} onChange={(event) => updateParam('status', event.target.value)}>
+            <option value="">Todos os status</option>
+            {Object.entries(EVENT_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </div>
+        <div className="filter-control">
+          <select aria-label="Ordenar eventos" value={sort} onChange={(event) => updateParam('sort', event.target.value)}>
+            <option value="newest">Mais recentes</option>
+            <option value="oldest">Mais antigos</option>
+            <option value="title">Título A–Z</option>
+          </select>
+        </div>
+        <div className="view-toggle" aria-label="Modo de visualização">
+          <button className={view === 'grid' ? 'active' : ''} onClick={() => changeView('grid')} aria-label="Visualizar em grade"><Grid2X2 size={17} /></button>
+          <button className={view === 'list' ? 'active' : ''} onClick={() => changeView('list')} aria-label="Visualizar em lista"><List size={18} /></button>
+        </div>
+      </section>
 
-            <select
-              className="form-select"
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              <option value="">Todos os status</option>
-              {Object.entries(EVENT_STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-
-            <button className="btn btn-secondary" onClick={handleFilter}>
-              <Filter size={18} />
-              Filtrar
+      <section className="folder-section" aria-labelledby="folder-title">
+        <div className="section-title-row">
+          <div><h2 id="folder-title">Pastas por tipo</h2><span>Organização automática dos eventos</span></div>
+          {selectedType && <button className="btn btn-ghost btn-sm" onClick={() => updateParam('type')}>Ver todas</button>}
+        </div>
+        <div className="folder-grid">
+          {TYPE_ORDER.map((type) => (
+            <button key={type} className={`type-folder type-folder-${type.toLowerCase()} ${selectedType === type ? 'selected' : ''}`} onClick={() => updateParam('type', type)}>
+              <span className="type-folder-icon"><Folder size={24} fill="currentColor" /></span>
+              <span><strong>{EVENT_TYPE_LABELS[type]}</strong><small>Abrir pasta</small></span>
             </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="events-section" aria-live="polite">
+        <div className="section-title-row">
+          <div><h2>Eventos</h2><span>{eventsQuery.data ? `${eventsQuery.data.count} registro(s)` : 'Carregando registros'}</span></div>
+          {eventsQuery.isFetching && !eventsQuery.isLoading && <span className="refresh-indicator"><span className="spinner-small" />Atualizando</span>}
+        </div>
+
+        {eventsQuery.isLoading ? <LibrarySkeleton /> : eventsQuery.isError ? (
+          <div className="empty-state error-state">
+            <Archive size={44} /><h3>Não foi possível carregar os eventos</h3>
+            <p>{eventsQuery.error instanceof Error ? eventsQuery.error.message : 'Verifique sua conexão e tente novamente.'}</p>
+            <button className="btn btn-secondary" onClick={() => eventsQuery.refetch()}>Tentar novamente</button>
           </div>
+        ) : events.length === 0 ? (
+          <div className="empty-state">
+            <CalendarDays size={48} /><h3>Nenhum evento encontrado</h3>
+            <p>Ajuste os filtros ou crie um novo evento para começar.</p>
+            <Link to="/events/new" className="btn btn-primary"><Plus size={18} />Criar evento</Link>
+          </div>
+        ) : (
+          <div className={view === 'grid' ? 'events-grid' : 'events-list'}>{events.map((event) => <EventCard key={event.id} event={event} view={view} />)}</div>
+        )}
 
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="loading">
-          <div className="spinner" />
-          <p>Carregando eventos...</p>
-        </div>
-      ) : events.length === 0 ? (
-        <div className="empty-state">
-          <Calendar size={64} />
-          <h3>Nenhum evento encontrado</h3>
-          <p>Crie seu primeiro evento para começar</p>
-          <Link to="/events/new" className="btn btn-primary">
-            <Plus size={20} />
-            Criar Evento
-          </Link>
-        </div>
-      ) : (
-        <div className="folders-container" role="tablist" aria-label="Pastas de tipo de evento">
-          {EVENT_TYPE_ORDER.map((type) => {
-            const eventsOfType = eventsByType[type] || [];
-            return (
-              <div key={type} className="folder-group">
-                <button
-                  type="button"
-                  className={`folder-header ${openFolders[type] ? 'open' : ''}`}
-                  onClick={() => toggleFolder(type)}
-                  aria-expanded={openFolders[type]}
-                >
-                  <div className="folder-icon">
-                    <Folder size={18} />
-                  </div>
-                  <div className="folder-details">
-                    <div className="folder-title">{EVENT_TYPE_LABELS[type]}</div>
-                    <div className="folder-count">{eventsOfType.length} evento{eventsOfType.length !== 1 ? 's' : ''}</div>
-                  </div>
-                  <ChevronDown size={18} className={`folder-chevron ${openFolders[type] ? 'open' : ''}`} />
-                </button>
-
-                {openFolders[type] && (
-                  <div className="folder-content">
-                    {eventsOfType.length === 0 ? (
-                      <div className="folder-empty">Nenhum evento neste tipo.</div>
-                    ) : (
-                      <div className="events-grid">
-                        {eventsOfType.map((event) => (
-                          <Link
-                            key={event.id}
-                            to={`/events/${event.id}`}
-                            className="event-card"
-                          >
-                            <div className="event-header">
-                              <span className={`badge ${STATUS_COLORS[event.status]}`}>
-                                {EVENT_STATUS_LABELS[event.status]}
-                              </span>
-                              <span className="event-type">
-                                {EVENT_TYPE_LABELS[event.type]}
-                              </span>
-                            </div>
-
-                            <h3 className="event-title">{event.title}</h3>
-
-                            <div className="event-meta">
-                              <div className="event-date">
-                                <Calendar size={16} />
-                                {format(new Date(event.start_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                              </div>
-                              {event.location && (
-                                <div className="event-location">{event.location}</div>
-                              )}
-                            </div>
-
-                            <div className="event-footer">
-                              <span className="event-author">Por {event.creator?.name || 'Desconhecido'}</span>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+        {eventsQuery.data && eventsQuery.data.count > 50 && (
+          <div className="pagination">
+            <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => updateParam('page', String(page - 1))}><ChevronLeft size={16} />Anterior</button>
+            <span>Página {page} de {totalPages}</span>
+            <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => updateParam('page', String(page + 1))}>Próxima<ChevronRight size={16} /></button>
+          </div>
+        )}
+      </section>
     </Layout>
   );
 }

@@ -1,17 +1,8 @@
-import { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ReactNode, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Archive, CalendarDays, LogOut, Menu, Share2, UserRound, Users, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { UserRole } from '@/types';
-import { 
-  Home, 
-  Calendar, 
-  Users, 
-  LogOut, 
-  User,
-  Menu,
-  X
-} from 'lucide-react';
-import { useState } from 'react';
 import './Layout.css';
 
 const USER_ROLE_LABELS: Record<UserRole, string> = {
@@ -27,7 +18,12 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = () => setSidebarOpen(false);
+  const eventsLink = (scope: 'mine' | 'shared' | 'archived') => `/events?scope=${scope}`;
+  const currentScope = (new URLSearchParams(location.search).get('scope') || 'mine') as 'mine' | 'shared' | 'archived';
+  const scopeClass = (scope: 'mine' | 'shared' | 'archived') => `nav-link ${location.pathname === '/events' && currentScope === scope ? 'active' : ''}`;
 
   const handleLogout = async () => {
     await logout();
@@ -36,87 +32,67 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="layout">
-      {/* Sidebar */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Navegação principal">
         <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <img src="/SIEDU/logo.png" alt="Brasão Ararendá" className="sidebar-logo" />
+          <NavLink to="/events" className="sidebar-brand" onClick={closeSidebar}>
+            <img src="/SIEDU/logo.png" alt="Brasão de Ararendá" className="sidebar-logo" />
             <div className="sidebar-brand-text">
-              <h1 className="sidebar-title">SIEDU</h1>
-              <span className="sidebar-subtitle">Ararendá</span>
+              <strong className="sidebar-title">SIEDU</strong>
+              <span className="sidebar-subtitle">Evidências da Educação</span>
             </div>
-          </div>
-          <button 
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X size={24} />
+          </NavLink>
+          <button className="sidebar-toggle icon-button" onClick={closeSidebar} aria-label="Fechar menu">
+            <X size={22} />
           </button>
         </div>
 
         <nav className="sidebar-nav">
-          <Link to="/portfolio" className="nav-link">
-            <Home size={20} />
-            <span>Portifólio</span>
+          <span className="nav-section-label">Biblioteca</span>
+          <Link to={eventsLink('mine')} className={scopeClass('mine')} onClick={closeSidebar}>
+            <CalendarDays size={19} /><span>Meus eventos</span>
           </Link>
-          <Link to="/events" className="nav-link">
-            <Calendar size={20} />
-            <span>Eventos</span>
+          <Link to={eventsLink('shared')} className={scopeClass('shared')} onClick={closeSidebar}>
+            <Share2 size={19} /><span>Compartilhados comigo</span>
           </Link>
-          {user?.role === 'ADMIN' && (
-            <Link to="/users" className="nav-link">
-              <Users size={20} />
-              <span>Usuários</span>
-            </Link>
+          <Link to={eventsLink('archived')} className={scopeClass('archived')} onClick={closeSidebar}>
+            <Archive size={19} /><span>Arquivados</span>
+          </Link>
+
+          {user?.role === UserRole.ADMIN && (
+            <>
+              <span className="nav-section-label nav-section-spaced">Administração</span>
+              <NavLink to="/users" className="nav-link" onClick={closeSidebar}>
+                <Users size={19} /><span>Usuários</span>
+              </NavLink>
+            </>
           )}
         </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-user-avatar" aria-hidden="true">
+            {(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}
+          </div>
+          <div className="sidebar-user-copy">
+            <strong>{user?.name || 'Usuário'}</strong>
+            <span>{user?.role ? USER_ROLE_LABELS[user.role] : ''}</span>
+          </div>
+          <button className="icon-button sidebar-logout" onClick={handleLogout} title="Sair" aria-label="Sair">
+            <LogOut size={18} />
+          </button>
+        </div>
       </aside>
 
-      {/* Overlay */}
-      {sidebarOpen && (
-        <div 
-          className="sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      {sidebarOpen && <button className="sidebar-overlay" onClick={closeSidebar} aria-label="Fechar menu" />}
 
-      {/* Main content */}
       <div className="main-content">
-        {/* Top bar */}
         <header className="topbar">
-          <button 
-            className="menu-toggle"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu size={24} />
+          <button className="icon-button menu-toggle" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">
+            <Menu size={22} />
           </button>
-
-          <div className="topbar-right">
-            <div className="user-menu">
-              <div className="user-info">
-                <User size={20} />
-                <div>
-                  <div className="user-name">{user?.name}</div>
-                  <div className="user-role">{user?.role ? USER_ROLE_LABELS[user.role as UserRole] || user.role : ''}</div>
-                </div>
-              </div>
-              <button 
-                className="btn btn-secondary btn-sm"
-                onClick={handleLogout}
-              >
-                <LogOut size={16} />
-                Sair
-              </button>
-            </div>
-          </div>
+          <div className="topbar-context"><span className="topbar-product">Secretaria Municipal de Educação</span></div>
+          <div className="topbar-user"><UserRound size={18} /><span>{user?.name || user?.email}</span></div>
         </header>
-
-        {/* Page content */}
-        <main className="page-content">
-          <div className="container">
-            {children}
-          </div>
-        </main>
+        <main className="page-content"><div className="container">{children}</div></main>
       </div>
     </div>
   );

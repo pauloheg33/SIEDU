@@ -18,6 +18,9 @@ dist-ssr/
 .env.local
 .env.*.local
 
+# Supabase CLI local link metadata
+supabase/.temp/
+
 # IDE
 .vscode/
 .idea/

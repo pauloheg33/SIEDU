@@ -15,6 +15,7 @@ import Dashboard from '@/pages/Dashboard';
 import EventForm from '@/pages/EventForm';
 import EventDetail from '@/pages/EventDetail';
 import PublicEvent from '@/pages/PublicEvent';
+import Users from '@/pages/Users';
 
 // Error component for missing configuration
 function ConfigError() {
@@ -118,10 +119,18 @@ function App() {
 
         {/* Protected routes */}
         <Route
-          path="/portfolio"
+          path="/events"
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <Users />
             </ProtectedRoute>
           }
         />
@@ -150,11 +159,12 @@ function App() {
           }
         />
 
-        {/* Redirect root to portfolio */}
-        <Route path="/" element={<Navigate to="/portfolio" replace />} />
+        <Route path="/portfolio" element={<Navigate to="/events" replace />} />
+        {/* Redirect root to event library */}
+        <Route path="/" element={<Navigate to="/events" replace />} />
 
         {/* 404 */}
-        <Route path="*" element={<Navigate to="/portfolio" replace />} />
+        <Route path="*" element={<Navigate to="/events" replace />} />
       </Routes>
 
       <ToastContainer

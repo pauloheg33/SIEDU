@@ -6,12 +6,14 @@ import {
   EventFile,
   Attendance,
   EventReport,
+  EventNote,
   EventType,
   EventStatus,
+  FileKind,
 } from '@/types';
 import { 
   Calendar, MapPin, Users, Image, FileText, 
-  ClipboardList, Check, X, File
+  ClipboardList, Check, X, File, MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -41,6 +43,7 @@ export default function PublicEvent() {
   const [report, setReport] = useState<EventReport | null>(null);
   const [reportFiles, setReportFiles] = useState<EventFile[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [notes, setNotes] = useState<EventNote[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<EventFile | null>(null);
 
   useEffect(() => {
@@ -50,25 +53,14 @@ export default function PublicEvent() {
   const loadPublicEvent = async () => {
     try {
       setLoading(true);
-      const data = await publicAPI.getEventByToken(token!);
-      if (!data) {
-        setNotFound(true);
-        return;
-      }
-      setEvent(data);
-
-      // Load all data in parallel
-      const [photosData, reportData, attendanceData, reportFilesData] = await Promise.all([
-        publicAPI.getPhotos(data.id),
-        publicAPI.getReport(data.id),
-        publicAPI.getAttendance(data.id),
-        publicAPI.getReportFiles(data.id),
-      ]);
-
-      setPhotos(photosData);
-      setReport(reportData);
-      setAttendance(attendanceData);
-      setReportFiles(reportFilesData);
+      setNotFound(false);
+      const bundle = await publicAPI.getBundleByToken(token!);
+      setEvent(bundle.event);
+      setPhotos(bundle.files.filter((file) => file.kind === FileKind.PHOTO));
+      setReportFiles(bundle.files.filter((file) => file.kind === FileKind.DOC));
+      setReport(bundle.report);
+      setAttendance(bundle.attendance);
+      setNotes(bundle.notes);
     } catch (error) {
       console.error('Error loading public event:', error);
       setNotFound(true);
@@ -94,6 +86,9 @@ export default function PublicEvent() {
         <div className="public-not-found">
           <h1>Evento não encontrado</h1>
           <p>O link de compartilhamento é inválido ou foi revogado.</p>
+          <button className="btn btn-secondary" type="button" onClick={loadPublicEvent}>
+            Tentar novamente
+          </button>
         </div>
       </div>
     );
@@ -264,6 +259,15 @@ export default function PublicEvent() {
                 <p>{report.content}</p>
               </div>
             )}
+          </section>
+        )}
+
+        {notes.length > 0 && (
+          <section className="public-section">
+            <h2 className="public-section-title"><MessageSquare size={24} />Observações ({notes.length})</h2>
+            <div className="public-notes-list">
+              {notes.map((note) => <article className="public-note" key={note.id}><p>{note.text}</p><small>{format(new Date(note.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</small></article>)}
+            </div>
           </section>
         )}
 

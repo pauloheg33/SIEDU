@@ -1,0 +1,3 @@
+-- Baseline marker for databases provisioned with ../migration.sql.
+-- Before the first remote db push, verify the live schema matches migration.sql
+-- and mark this version as applied with the Supabase migration repair command.

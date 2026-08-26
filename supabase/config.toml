@@ -1,0 +1,2 @@
+[functions.public-event]
+verify_jwt = false

@@ -53,6 +53,7 @@ export type Database = {
           created_at: string
           updated_at: string
           share_token: string | null
+          client_request_id: string | null
         }
         Insert: {
           id?: string
@@ -70,6 +71,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           share_token?: string | null
+          client_request_id?: string | null
         }
         Update: {
           id?: string
@@ -87,11 +89,49 @@ export type Database = {
           created_at?: string
           updated_at?: string
           share_token?: string | null
+          client_request_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "events_created_by_fkey"
             columns: ["created_by"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      event_collaborators: {
+        Row: {
+          event_id: string
+          user_id: string
+          role: 'EDITOR' | 'VIEWER'
+          invited_by: string | null
+          created_at: string
+        }
+        Insert: {
+          event_id: string
+          user_id: string
+          role?: 'EDITOR' | 'VIEWER'
+          invited_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          event_id?: string
+          user_id?: string
+          role?: 'EDITOR' | 'VIEWER'
+          invited_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_collaborators_event_id_fkey"
+            columns: ["event_id"]
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collaborators_user_id_fkey"
+            columns: ["user_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]
           }
@@ -108,6 +148,7 @@ export type Database = {
           size: number
           url: string
           thumbnail_url: string | null
+          storage_path: string | null
           uploaded_by: string | null
           created_at: string
         }
@@ -121,6 +162,7 @@ export type Database = {
           size: number
           url: string
           thumbnail_url?: string | null
+          storage_path?: string | null
           uploaded_by?: string | null
           created_at?: string
         }
@@ -134,6 +176,7 @@ export type Database = {
           size?: number
           url?: string
           thumbnail_url?: string | null
+          storage_path?: string | null
           uploaded_by?: string | null
           created_at?: string
         }
@@ -274,7 +317,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_update_user: {
+        Args: {
+          target_user_id: string
+          target_role: 'ADMIN' | 'TEC_FORMACAO' | 'TEC_ACOMPANHAMENTO' | null
+          target_active: boolean | null
+        }
+        Returns: Database['public']['Tables']['users']['Row']
+      }
+      set_event_share: {
+        Args: { target_event_id: string; enabled: boolean }
+        Returns: string | null
+      }
     }
     Enums: {
       user_role: 'ADMIN' | 'TEC_FORMACAO' | 'TEC_ACOMPANHAMENTO'

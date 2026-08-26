@@ -9,6 +9,11 @@
   flex-direction: column;
 }
 
+.public-notes-list { display: grid; gap: .75rem; }
+.public-note { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #f8fafc; }
+.public-note p { white-space: pre-wrap; color: var(--text-primary); }
+.public-note small { display: block; margin-top: .6rem; color: var(--text-muted); }
+
 /* Loading & Not Found */
 .public-loading,
 .public-not-found {

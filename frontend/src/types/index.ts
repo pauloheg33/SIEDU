@@ -29,6 +29,14 @@ export enum FileScope {
   REPORT_PPT = 'REPORT_PPT',
 }
 
+export enum CollaborationRole {
+  EDITOR = 'EDITOR',
+  VIEWER = 'VIEWER',
+}
+
+export type EventLibraryScope = 'mine' | 'shared' | 'archived';
+export type EventSort = 'newest' | 'oldest' | 'title';
+
 export interface User {
   id: string;
   name: string;
@@ -51,10 +59,12 @@ export interface Event {
   tags: string[];
   schools: string[];
   share_token?: string;
+  client_request_id?: string;
   created_by: string;
   created_at: string;
   updated_at: string;
-  creator: User;
+  creator?: User;
+  access_role?: 'OWNER' | CollaborationRole;
 }
 
 export interface EventFile {
@@ -67,9 +77,36 @@ export interface EventFile {
   size: number;
   url: string;
   thumbnail_url?: string;
+  storage_path?: string;
   uploaded_by: string;
   created_at: string;
   uploader?: User;
+}
+
+export interface EventCollaborator {
+  event_id: string;
+  user_id: string;
+  role: CollaborationRole;
+  invited_by?: string;
+  created_at: string;
+  user?: User;
+}
+
+export interface EventListParams {
+  type?: EventType;
+  status?: EventStatus;
+  search?: string;
+  scope?: EventLibraryScope;
+  sort?: EventSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedEvents {
+  data: Event[];
+  count: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface Attendance {
@@ -124,6 +161,15 @@ export interface EventCreateRequest {
   description?: string;
   tags: string[];
   schools: string[];
+  client_request_id?: string;
+}
+
+export interface PublicEventBundle {
+  event: Event;
+  files: EventFile[];
+  attendance: Attendance[];
+  notes: EventNote[];
+  report: EventReport | null;
 }
 
 export interface AttendanceCreateRequest {
