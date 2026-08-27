@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Archive, CalendarDays, ChevronLeft, ChevronRight, Folder, Grid2X2, List, MapPin, Plus, Search, SlidersHorizontal, Users } from 'lucide-react';
@@ -72,6 +72,7 @@ export default function Dashboard() {
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
   const [view, setView] = useState<'grid' | 'list'>(() => (localStorage.getItem('siedu:event-view') === 'list' ? 'list' : 'grid'));
+  const folderGridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
@@ -111,6 +112,17 @@ export default function Dashboard() {
   const changeView = (next: 'grid' | 'list') => {
     setView(next);
     localStorage.setItem('siedu:event-view', next);
+  };
+
+  const openFolder = (type: EventType) => {
+    updateParam('type', type);
+    window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+      folderGridRef.current?.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    });
   };
 
   const totalPages = Math.max(1, Math.ceil((eventsQuery.data?.count || 0) / 50));
@@ -159,9 +171,9 @@ export default function Dashboard() {
           <div><h2 id="folder-title">Pastas por tipo</h2><span>Organização automática dos eventos</span></div>
           {selectedType && <button className="btn btn-ghost btn-sm" onClick={() => updateParam('type')}>Ver todas</button>}
         </div>
-        <div className="folder-grid">
+        <div className="folder-grid" ref={folderGridRef}>
           {TYPE_ORDER.map((type) => (
-            <button key={type} className={`type-folder type-folder-${type.toLowerCase()} ${selectedType === type ? 'selected' : ''}`} onClick={() => updateParam('type', type)}>
+            <button key={type} className={`type-folder type-folder-${type.toLowerCase()} ${selectedType === type ? 'selected' : ''}`} onClick={() => openFolder(type)}>
               <span className="type-folder-icon"><Folder size={24} fill="currentColor" /></span>
               <span><strong>{EVENT_TYPE_LABELS[type]}</strong><small>Abrir pasta</small></span>
             </button>

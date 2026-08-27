@@ -14,7 +14,7 @@
 .section-title-row { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .section-title-row h2 { font-size: 1rem; }
 .section-title-row span { display: block; margin-top: 2px; color: var(--text-muted); font-size: .74rem; }
-.folder-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.folder-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; scroll-margin-top: 78px; }
 .type-folder { min-width: 0; display: flex; align-items: center; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; color: var(--text-primary); text-align: left; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform .16s, border .16s, box-shadow .16s; }
 .type-folder:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: var(--shadow-md); }
 .type-folder.selected { border-color: var(--secondary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }

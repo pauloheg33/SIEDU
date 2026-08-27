@@ -20,9 +20,18 @@ function renderDashboard() {
 }
 
 describe('Dashboard', () => {
+  const scrollIntoView = vi.fn();
+
   beforeEach(() => {
     localStorage.clear();
     listPaginated.mockReset();
+    scrollIntoView.mockReset();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
   });
 
   it('shows automatic folders and applies a status filter', async () => {
@@ -41,5 +50,15 @@ describe('Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     await waitFor(() => expect(listPaginated).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Nenhum evento encontrado')).toBeInTheDocument();
+  });
+
+  it('scrolls the folder grid below the sticky header when opening a folder', async () => {
+    listPaginated.mockResolvedValue({ data: [], count: 0, page: 1, pageSize: 50 });
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Formação/ }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    await waitFor(() => expect(listPaginated).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'FORMACAO' })));
   });
 });
