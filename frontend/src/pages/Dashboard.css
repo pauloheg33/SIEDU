@@ -46,6 +46,7 @@
 .refresh-indicator .spinner-small { color: var(--primary); border-color: var(--border); border-top-color: var(--primary); }
 .pagination { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 18px; color: var(--text-muted); font-size: .78rem; }
 
+@media (min-width: 861px) { .events-section { min-height: calc(100vh - 90px); } }
 @media (max-width: 1040px) { .folder-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 760px) {
   .library-header { align-items: stretch; flex-direction: column; }
