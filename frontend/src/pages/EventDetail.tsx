@@ -506,11 +506,13 @@ export default function EventDetail() {
     }
   };
 
-  const currentCollaboration = collaborators.find((item) => item.user_id === currentUser?.id);
   const isOwner = event?.created_by === currentUser?.id;
   const isAdmin = currentUser?.role === UserRole.ADMIN;
   const canManage = Boolean(isOwner || isAdmin);
-  const canEdit = Boolean(canManage || currentCollaboration?.role === CollaborationRole.EDITOR);
+  // Todos os usuários ativos trabalham sobre a mesma biblioteca de eventos.
+  // Proprietário/admin continuam sendo os únicos que gerenciam compartilhamento,
+  // colaboradores e exclusão do evento inteiro.
+  const canEdit = Boolean(currentUser?.is_active);
 
   const handleSaveCollaborator = async () => {
     if (!selectedCollaborator) {

@@ -41,6 +41,7 @@ jobs:
         run: |
           test -s supabase/migrations/20260826001000_collaboration_additive.sql
           test -s supabase/migrations/20260826002000_collaboration_security.sql
+          test -s supabase/migrations/20260827000000_global_event_access.sql
           test -s supabase/verification.sql
 
       - name: Build

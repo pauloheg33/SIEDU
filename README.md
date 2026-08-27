@@ -62,7 +62,8 @@ Projetos que já possuem dados não devem executar novamente o arquivo `migratio
 3. Aplique `20260826001000_collaboration_additive.sql`. Essa etapa adiciona campos, colaboradores, índices e faz o backfill sem restringir o acesso atual.
 4. Publique a Edge Function `public-event` e o frontend compatível.
 5. Aplique `20260826002000_collaboration_security.sql` para ativar as novas políticas e tornar os buckets privados.
-6. Execute novamente `supabase/verification.sql`. As contagens das tabelas originais devem permanecer iguais, não pode haver órfãos e `missing_legacy_editor_memberships` deve ser zero.
+6. Aplique `20260827000000_global_event_access.sql` para que toda conta ativa, inclusive as criadas futuramente, possa visualizar e editar a biblioteca completa e seus arquivos.
+7. Execute novamente `supabase/verification.sql`. As contagens das tabelas originais devem permanecer iguais e não pode haver órfãos.
 
 Antes de qualquer aplicação remota, use o dry-run da CLI do Supabase. As credenciais e a service role devem permanecer somente nos ambientes do Supabase e do GitHub; nunca no frontend ou no repositório.
 

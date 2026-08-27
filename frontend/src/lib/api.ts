@@ -185,6 +185,7 @@ export const eventsAPI = {
       .select('id,title,type,status,start_at,end_at,location,audience,description,tags,schools,created_by,created_at,updated_at,share_token,client_request_id,creator:users!created_by(id,name,email,role,is_active,created_at)', { count: 'exact' })
       .abortSignal(querySignal(12_000));
 
+    if (!params.scope || params.scope === 'all') query = query.neq('status', 'ARQUIVADO');
     if (params.scope === 'mine') query = query.eq('created_by', user.id).neq('status', 'ARQUIVADO');
     if (params.scope === 'shared') query = query.or(`created_by.neq.${user.id},created_by.is.null`).neq('status', 'ARQUIVADO');
     if (params.scope === 'archived') query = query.eq('status', 'ARQUIVADO');
