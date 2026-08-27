@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,5 +60,32 @@ describe('Dashboard', () => {
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
     await waitFor(() => expect(listPaginated).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'FORMACAO' })));
+  });
+
+  it('realigns the folder grid after the filtered query finishes', async () => {
+    let resolveFilteredQuery: ((value: { data: never[]; count: number; page: number; pageSize: number }) => void) | undefined;
+    listPaginated
+      .mockResolvedValueOnce({ data: [], count: 0, page: 1, pageSize: 50 })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFilteredQuery = resolve; }));
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Formação/ }));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFilteredQuery?.({ data: [], count: 0, page: 1, pageSize: 50 });
+    });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not auto-scroll folders on mobile screens', async () => {
+    vi.mocked(window.matchMedia).mockReturnValue({ matches: true } as MediaQueryList);
+    listPaginated.mockResolvedValue({ data: [], count: 0, page: 1, pageSize: 50 });
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Premiação/ }));
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    await waitFor(() => expect(listPaginated).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'PREMIACAO' })));
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Archive, CalendarDays, ChevronLeft, ChevronRight, Folder, Grid2X2, List, MapPin, Plus, Search, SlidersHorizontal, Users } from 'lucide-react';
@@ -73,6 +73,15 @@ export default function Dashboard() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
   const [view, setView] = useState<'grid' | 'list'>(() => (localStorage.getItem('siedu:event-view') === 'list' ? 'list' : 'grid'));
   const folderGridRef = useRef<HTMLDivElement>(null);
+  const pendingFolderScrollRef = useRef(false);
+
+  const scrollFolderGridIntoView = useCallback(() => {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    folderGridRef.current?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
@@ -102,6 +111,16 @@ export default function Dashboard() {
     placeholderData: (previous) => previous,
   });
 
+  useEffect(() => {
+    if (!pendingFolderScrollRef.current || eventsQuery.isFetching) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollFolderGridIntoView();
+      pendingFolderScrollRef.current = false;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [eventsQuery.dataUpdatedAt, eventsQuery.isFetching, scrollFolderGridIntoView, selectedType]);
+
   const updateParam = (name: string, value?: string) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(name, value); else next.delete(name);
@@ -115,14 +134,10 @@ export default function Dashboard() {
   };
 
   const openFolder = (type: EventType) => {
+    const isMobile = window.matchMedia?.('(max-width: 860px)').matches ?? false;
+    pendingFolderScrollRef.current = !isMobile;
     updateParam('type', type);
-    window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-      folderGridRef.current?.scrollIntoView({
-        behavior: reduceMotion ? 'auto' : 'smooth',
-        block: 'start',
-      });
-    });
+    if (!isMobile) window.requestAnimationFrame(scrollFolderGridIntoView);
   };
 
   const totalPages = Math.max(1, Math.ceil((eventsQuery.data?.count || 0) / 50));
