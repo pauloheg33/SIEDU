@@ -30,9 +30,8 @@ const STATUS_COLORS: Record<EventStatus, string> = {
 
 const TYPE_ORDER = [EventType.FORMACAO, EventType.PREMIACAO, EventType.ENCONTRO, EventType.OUTRO];
 const SCOPE_TITLES: Record<EventLibraryScope, { title: string; description: string }> = {
-  all: { title: 'Todos os eventos', description: 'Eventos cadastrados por toda a equipe' },
   mine: { title: 'Meus eventos', description: 'Eventos criados por você' },
-  shared: { title: 'Compartilhados comigo', description: 'Eventos em que você participa como editor ou leitor' },
+  shared: { title: 'Compartilhados comigo', description: 'Eventos criados pelos demais usuários da plataforma' },
   archived: { title: 'Arquivados', description: 'Histórico de eventos arquivados' },
 };
 
@@ -65,7 +64,7 @@ function LibrarySkeleton() {
 
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope = (searchParams.get('scope') as EventLibraryScope) || 'all';
+  const scope = (searchParams.get('scope') as EventLibraryScope) || 'shared';
   const selectedType = (searchParams.get('type') as EventType | null) || undefined;
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const status = (searchParams.get('status') as EventStatus | null) || undefined;
@@ -143,7 +142,7 @@ export default function Dashboard() {
 
   const totalPages = Math.max(1, Math.ceil((eventsQuery.data?.count || 0) / 50));
   const events = eventsQuery.data?.data || [];
-  const scopeCopy = SCOPE_TITLES[scope] || SCOPE_TITLES.all;
+  const scopeCopy = SCOPE_TITLES[scope] || SCOPE_TITLES.shared;
 
   return (
     <Layout>

@@ -38,8 +38,8 @@ describe('Dashboard', () => {
     listPaginated.mockResolvedValue({ data: [], count: 0, page: 1, pageSize: 50 });
     renderDashboard();
     expect(await screen.findByRole('button', { name: /Formação/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Todos os eventos' })).toBeInTheDocument();
-    await waitFor(() => expect(listPaginated).toHaveBeenCalledWith(expect.objectContaining({ scope: 'all' })));
+    expect(screen.getByRole('heading', { name: 'Compartilhados comigo' })).toBeInTheDocument();
+    await waitFor(() => expect(listPaginated).toHaveBeenCalledWith(expect.objectContaining({ scope: 'shared' })));
     fireEvent.change(screen.getByLabelText('Filtrar por status'), { target: { value: 'REALIZADO' } });
     await waitFor(() => expect(listPaginated).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'REALIZADO', pageSize: 50 })));
   });

@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Archive, CalendarDays, LogOut, Menu, UserRound, Users, X } from 'lucide-react';
+import { Archive, CalendarDays, LogOut, Menu, Share2, UserRound, Users, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { UserRole } from '@/types';
 import './Layout.css';
@@ -21,9 +21,9 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
-  const eventsLink = (scope: 'all' | 'mine' | 'archived') => `/events?scope=${scope}`;
-  const currentScope = (new URLSearchParams(location.search).get('scope') || 'all') as 'all' | 'mine' | 'archived';
-  const scopeClass = (scope: 'all' | 'mine' | 'archived') => `nav-link ${location.pathname === '/events' && currentScope === scope ? 'active' : ''}`;
+  const eventsLink = (scope: 'mine' | 'shared' | 'archived') => `/events?scope=${scope}`;
+  const currentScope = (new URLSearchParams(location.search).get('scope') || 'shared') as 'mine' | 'shared' | 'archived';
+  const scopeClass = (scope: 'mine' | 'shared' | 'archived') => `nav-link ${location.pathname === '/events' && currentScope === scope ? 'active' : ''}`;
 
   const handleLogout = async () => {
     await logout();
@@ -48,11 +48,11 @@ export default function Layout({ children }: LayoutProps) {
 
         <nav className="sidebar-nav">
           <span className="nav-section-label">Biblioteca</span>
-          <Link to={eventsLink('all')} className={scopeClass('all')} onClick={closeSidebar}>
-            <CalendarDays size={19} /><span>Todos os eventos</span>
-          </Link>
           <Link to={eventsLink('mine')} className={scopeClass('mine')} onClick={closeSidebar}>
-            <UserRound size={19} /><span>Meus eventos</span>
+            <CalendarDays size={19} /><span>Meus eventos</span>
+          </Link>
+          <Link to={eventsLink('shared')} className={scopeClass('shared')} onClick={closeSidebar}>
+            <Share2 size={19} /><span>Compartilhados comigo</span>
           </Link>
           <Link to={eventsLink('archived')} className={scopeClass('archived')} onClick={closeSidebar}>
             <Archive size={19} /><span>Arquivados</span>

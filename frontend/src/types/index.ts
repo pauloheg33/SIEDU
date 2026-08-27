@@ -34,7 +34,7 @@ export enum CollaborationRole {
   VIEWER = 'VIEWER',
 }
 
-export type EventLibraryScope = 'all' | 'mine' | 'shared' | 'archived';
+export type EventLibraryScope = 'mine' | 'shared' | 'archived';
 export type EventSort = 'newest' | 'oldest' | 'title';
 
 export interface User {
