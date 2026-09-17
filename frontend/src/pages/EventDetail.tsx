@@ -1,3 +1,4 @@
+import GalleryPreview from '@/components/GalleryPreview';
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -146,7 +147,11 @@ export default function EventDetail() {
       setTabError('');
       switch (activeTab) {
         case 'photos': {
-          const photosData = await filesAPI.list(id!, FileKind.PHOTO);
+          const photosData = await queryClient.fetchQuery({
+            queryKey: ['event-photos', id],
+            queryFn: () => filesAPI.list(id!, FileKind.PHOTO),
+            staleTime: 5 * 60 * 1000,
+          });
           setPhotos(photosData);
           break;
         }
@@ -226,6 +231,7 @@ export default function EventDetail() {
       setFailedPhotoFiles(error?.failedFiles || files);
       toast.error(error?.message || 'Erro ao enviar arquivos');
     } finally {
+      void queryClient.invalidateQueries({ queryKey: ['event-photos', id] });
       setUploadingPhotos(false);
     }
   };
@@ -255,6 +261,7 @@ export default function EventDetail() {
     
     try {
       await filesAPI.delete(id!, fileId);
+      void queryClient.invalidateQueries({ queryKey: ['event-photos', id] });
       toast.success('Arquivo excluído');
       setPhotos(photos.filter(p => p.id !== fileId));
       setSelectedPhoto(null);
@@ -738,8 +745,6 @@ export default function EventDetail() {
               </label>
             </div>
 
-            <p>Fotos e vídeos de até 500 MB por arquivo.</p>
-
             {photoUploadStatus.length > 0 && (
               <div className="upload-status-list" aria-live="polite">
                 {photoUploadStatus.map((item) => (
@@ -756,7 +761,7 @@ export default function EventDetail() {
               </div>
             )}
 
-            {photos.length === 0 ? (
+            {photos.length === 0 && tabLoading ? <div className="photos-grid" aria-label="Carregando fotos">{Array.from({ length: 8 }, (_, i) => <div className="photo-item gallery-placeholder-card" key={i} />)}</div> : photos.length === 0 ? (
               <div className="empty-state">
                 <Image size={48} />
                 <p>Nenhuma foto ou vídeo adicionado</p>
@@ -769,22 +774,7 @@ export default function EventDetail() {
                     className="photo-item"
                     onClick={() => setSelectedPhoto(photo)}
                   >
-                    {photo.mime.startsWith('video/') ? (
-                      <video src={photo.url} controls preload="metadata" playsInline
-                        aria-label={photo.filename} onClick={(e) => e.stopPropagation()} />
-                    ) : (
-                      <img
-                      src={photo.thumbnail_url || photo.url} 
-                      alt={photo.filename}
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        if (target.src !== photo.url) {
-                          target.src = photo.url;
-                        }
-                      }}
-                    />
-                    )}
+                    <GalleryPreview file={photo} onOpen={() => setSelectedPhoto(photo)} canSaveThumbnail={canEdit} />
                     <div className="photo-actions">
                       <button 
                         className="download-btn"

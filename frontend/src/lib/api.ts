@@ -1,3 +1,4 @@
+import { createThumbnail, thumbnailPath } from './thumbnails';
 import { validateEventMedia } from './eventMedia';
 import { uploadLargeFile } from './uploadLargeFile';
 import { supabase, getAuthenticatedUser, ensureFreshSession, querySignal, withTimeout } from './supabase';
@@ -382,7 +383,28 @@ function extractStoragePath(url: string, bucket: string): string | null {
 }
 
 // Files
+const thumbnailJobs = new Map<string, Promise<void>>();
+
 export const filesAPI = {
+  saveThumbnail: (file: EventFile, blob: Blob): Promise<void> => {
+    const existing = thumbnailJobs.get(file.id);
+    if (existing) return existing;
+    const job = (async () => {
+      const path = thumbnailPath(file.event_id, file.id);
+      const { error } = await withTimeout(supabase.storage.from('photos').upload(path, blob, {
+        contentType: 'image/jpeg', cacheControl: '31536000', upsert: true,
+      }), 15_000);
+      if (error) throw error;
+      const { data } = supabase.storage.from('photos').getPublicUrl(path);
+      const { error: updateError } = await supabase.from('event_files')
+        .update({ thumbnail_url: data.publicUrl }).eq('id', file.id).abortSignal(querySignal());
+      if (updateError) throw updateError;
+      const { data: signed } = await withTimeout(supabase.storage.from('photos').createSignedUrl(path, 3600), 12_000);
+      if (signed?.signedUrl) file.thumbnail_url = signed.signedUrl;
+    })().finally(() => thumbnailJobs.delete(file.id));
+    thumbnailJobs.set(file.id, job);
+    return job;
+  },
   list: async (eventId: string, kind?: FileKind, scope?: FileScope): Promise<EventFile[]> => {
     await ensureFreshSession();
     let query = supabase
@@ -411,16 +433,23 @@ export const filesAPI = {
     }
 
     await Promise.all(Array.from(byBucket.entries()).map(async ([bucket, entries]) => {
+      const thumbnailEntries = entries.filter(({ file, path }) =>
+        file.thumbnail_url && extractStoragePath(file.thumbnail_url, bucket) && extractStoragePath(file.thumbnail_url, bucket) !== path);
+      const paths = [...entries.map((entry) => entry.path),
+        ...thumbnailEntries.map(({ file }) => extractStoragePath(file.thumbnail_url!, bucket)!)];
       const { data: signed, error: signedError } = await withTimeout(
-        supabase.storage.from(bucket).createSignedUrls(entries.map((entry) => entry.path), 3600),
+        supabase.storage.from(bucket).createSignedUrls(paths, 3600),
         12_000,
         'Tempo esgotado ao preparar os arquivos.',
       );
       if (signedError) throw signedError;
       signed?.forEach((item, index) => {
-        if (item.signedUrl) {
+        if (!item.signedUrl) return;
+        if (index < entries.length) {
           entries[index].file.url = item.signedUrl;
           entries[index].file.thumbnail_url = item.signedUrl;
+        } else {
+          thumbnailEntries[index - entries.length].file.thumbnail_url = item.signedUrl;
         }
       });
     }));
@@ -495,6 +524,15 @@ export const filesAPI = {
       } catch {
         // Listing the event again regenerates signed URLs.
       }
+      if (kind === 'PHOTO' && file.type.startsWith('image/')) {
+        try {
+          const bitmap = await createImageBitmap(file);
+          try {
+            const blob = await createThumbnail(bitmap, bitmap.width, bitmap.height);
+            await filesAPI.saveThumbnail(fileData as EventFile, blob);
+          } finally { bitmap.close(); }
+        } catch { /* Original remains available; the gallery can retry later. */ }
+      }
       onStatus?.(file, 'complete');
       return fileData as EventFile;
       } catch (error) {
@@ -543,7 +581,10 @@ export const filesAPI = {
     const path = file.storage_path || extractStoragePath(file.url, bucket);
     if (path) {
       const { error: storageError } = await withTimeout(
-        supabase.storage.from(bucket).remove([path]),
+        supabase.storage.from(bucket).remove([
+          path,
+          ...(file.kind === 'PHOTO' ? [thumbnailPath(file.event_id, file.id)] : []),
+        ]),
         15_000,
         'Tempo esgotado ao excluir o arquivo.',
       );

@@ -65,14 +65,20 @@ Deno.serve(async (request) => {
         }))
         .filter((entry) => entry.expectedBucket === bucket && entry.path);
       if (!entries.length) continue;
+      const thumbnails = entries.filter(({ file, path }) =>
+        file.thumbnail_url && storagePath(file.thumbnail_url, bucket) && storagePath(file.thumbnail_url, bucket) !== path);
       const { data: signed } = await supabase.storage.from(bucket).createSignedUrls(
-        entries.map((entry) => entry.path as string),
+        [...entries.map((entry) => entry.path as string),
+          ...thumbnails.map(({ file }) => storagePath(file.thumbnail_url, bucket) as string)],
         15 * 60,
       );
       signed?.forEach((item, index) => {
-        if (item.signedUrl) {
+        if (!item.signedUrl) return;
+        if (index < entries.length) {
           entries[index].file.url = item.signedUrl;
           entries[index].file.thumbnail_url = item.signedUrl;
+        } else {
+          thumbnails[index - entries.length].file.thumbnail_url = item.signedUrl;
         }
       });
     }

@@ -1067,3 +1067,6 @@
   .header-actions .btn { width: 100%; }
   .tab-content { padding: 15px; }
 }
+
+.gallery-placeholder-card { background: #eef2f1; }
+.photo-item:focus-within .photo-actions { opacity: 1; }

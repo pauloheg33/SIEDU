@@ -1,3 +1,4 @@
+import GalleryPreview from '@/components/GalleryPreview';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { publicAPI } from '@/lib/api';
@@ -193,22 +194,7 @@ export default function PublicEvent() {
                   className="public-photo-item"
                   onClick={() => setSelectedPhoto(photo)}
                 >
-                  {photo.mime.startsWith('video/') ? (
-                      <video src={photo.url} controls preload="metadata" playsInline
-                        aria-label={photo.filename} onClick={(e) => e.stopPropagation()} />
-                    ) : (
-                      <img
-                    src={photo.thumbnail_url || photo.url} 
-                    alt={photo.filename}
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      if (target.src !== photo.url) {
-                        target.src = photo.url;
-                      }
-                    }}
-                  />
-                    )}
+                  <GalleryPreview file={photo} onOpen={() => setSelectedPhoto(photo)} />
                 </div>
               ))}
             </div>
