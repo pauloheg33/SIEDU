@@ -220,11 +220,11 @@ export default function EventDetail() {
       });
       setPhotos((current) => [...uploaded, ...current]);
       setFailedPhotoFiles([]);
-      toast.success('Fotos enviadas com sucesso!');
+      toast.success('Arquivos enviados com sucesso!');
     } catch (error: any) {
       if (error?.uploadedFiles?.length) setPhotos((current) => [...error.uploadedFiles, ...current]);
       setFailedPhotoFiles(error?.failedFiles || files);
-      toast.error(error?.message || 'Erro ao enviar fotos');
+      toast.error(error?.message || 'Erro ao enviar arquivos');
     } finally {
       setUploadingPhotos(false);
     }
@@ -251,15 +251,15 @@ export default function EventDetail() {
   };
 
   const handleDeletePhoto = async (fileId: string) => {
-    if (!window.confirm('Excluir esta foto?')) return;
+    if (!window.confirm('Excluir este arquivo?')) return;
     
     try {
       await filesAPI.delete(id!, fileId);
-      toast.success('Foto excluída');
+      toast.success('Arquivo excluído');
       setPhotos(photos.filter(p => p.id !== fileId));
       setSelectedPhoto(null);
     } catch (error) {
-      toast.error('Erro ao excluir foto');
+      toast.error('Erro ao excluir arquivo');
     }
   };
 
@@ -613,7 +613,7 @@ export default function EventDetail() {
           onClick={() => setActiveTab('photos')}
         >
           <Image size={18} />
-          Fotos
+          Fotos e Vídeos
         </button>
         <button 
           className={`tab ${activeTab === 'report' ? 'active' : ''}`}
@@ -723,20 +723,22 @@ export default function EventDetail() {
         {activeTab === 'photos' && (
           <div className="photos-tab">
             <div className="tab-header">
-              <h3>Galeria de Fotos</h3>
+              <h3>Galeria de Fotos e Vídeos</h3>
               <label className="btn btn-primary">
                 <Upload size={18} />
-                {uploadingPhotos ? 'Enviando...' : 'Enviar Fotos'}
+                {uploadingPhotos ? 'Enviando...' : 'Enviar Fotos e Vídeos'}
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/*,video/*"
                   onChange={handlePhotoUpload}
                   disabled={uploadingPhotos}
                   style={{ display: 'none' }}
                 />
               </label>
             </div>
+
+            <p>Fotos e vídeos de até 500 MB por arquivo.</p>
 
             {photoUploadStatus.length > 0 && (
               <div className="upload-status-list" aria-live="polite">
@@ -757,7 +759,7 @@ export default function EventDetail() {
             {photos.length === 0 ? (
               <div className="empty-state">
                 <Image size={48} />
-                <p>Nenhuma foto adicionada</p>
+                <p>Nenhuma foto ou vídeo adicionado</p>
               </div>
             ) : (
               <div className="photos-grid">
@@ -767,7 +769,11 @@ export default function EventDetail() {
                     className="photo-item"
                     onClick={() => setSelectedPhoto(photo)}
                   >
-                    <img 
+                    {photo.mime.startsWith('video/') ? (
+                      <video src={photo.url} controls preload="metadata" playsInline
+                        aria-label={photo.filename} onClick={(e) => e.stopPropagation()} />
+                    ) : (
+                      <img
                       src={photo.thumbnail_url || photo.url} 
                       alt={photo.filename}
                       loading="lazy"
@@ -778,6 +784,7 @@ export default function EventDetail() {
                         }
                       }}
                     />
+                    )}
                     <div className="photo-actions">
                       <button 
                         className="download-btn"
@@ -785,7 +792,7 @@ export default function EventDetail() {
                           e.stopPropagation();
                           handleDownloadPhoto(photo);
                         }}
-                        title="Baixar foto"
+                        title="Baixar arquivo"
                       >
                         <Download size={16} />
                       </button>
@@ -795,7 +802,7 @@ export default function EventDetail() {
                           e.stopPropagation();
                           handleDeletePhoto(photo.id);
                         }}
-                        title="Deletar foto"
+                        title="Deletar arquivo"
                       >
                         <X size={16} />
                       </button>
@@ -811,13 +818,18 @@ export default function EventDetail() {
                 <button className="close-btn" onClick={() => setSelectedPhoto(null)}>
                   <X size={24} />
                 </button>
-                <img 
+                {selectedPhoto.mime.startsWith('video/') ? (
+                  <video src={selectedPhoto.url} controls autoPlay playsInline
+                    aria-label={selectedPhoto.filename} onClick={(e) => e.stopPropagation()} />
+                ) : (
+                  <img
                   src={selectedPhoto.url} 
                   alt={selectedPhoto.filename}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
+                )}
               </div>
             )}
           </div>

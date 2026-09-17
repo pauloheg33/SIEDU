@@ -1,3 +1,5 @@
+import { validateEventMedia } from './eventMedia';
+import { uploadLargeFile } from './uploadLargeFile';
 import { supabase, getAuthenticatedUser, ensureFreshSession, querySignal, withTimeout } from './supabase';
 import { FileScope } from '@/types';
 import type {
@@ -433,6 +435,7 @@ export const filesAPI = {
     scope: FileScope = FileScope.UNSCOPED,
     onStatus?: (file: File, status: 'uploading' | 'complete' | 'error') => void,
   ): Promise<EventFile[]> => {
+    if (kind === 'PHOTO') files.forEach(validateEventMedia);
     const user = await getAuthenticatedUser();
 
     const uploadOne = async (file: File): Promise<EventFile> => {
@@ -442,12 +445,16 @@ export const filesAPI = {
       const fileName = `${eventId}/${crypto.randomUUID()}.${fileExt}`;
       const bucket = kind === 'PHOTO' ? 'photos' : 'documents';
 
-      // Upload to storage
+      // Large gallery media uses retryable chunks without a 30-second total timeout.
+      if (kind === 'PHOTO' && file.size > 6 * 1024 * 1024) {
+        await uploadLargeFile(bucket, fileName, file);
+      } else {
       const { error: uploadError } = await withTimeout(supabase.storage
         .from(bucket)
         .upload(fileName, file), 30_000, 'Tempo esgotado no upload do arquivo.');
 
       if (uploadError) throw uploadError;
+      }
 
       // Get public URL (stored in DB as reference path)
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
@@ -474,6 +481,19 @@ export const filesAPI = {
       if (dbError) {
         await supabase.storage.from(bucket).remove([fileName]);
         throw dbError;
+      }
+      // The gallery bucket is private; use a signed URL for immediate playback.
+      // A signing failure must not mark an already saved file for re-upload.
+      try {
+        const { data: signed } = await withTimeout(
+          supabase.storage.from(bucket).createSignedUrl(fileName, 3600), 12_000,
+        );
+        if (signed?.signedUrl) {
+          fileData.url = signed.signedUrl;
+          fileData.thumbnail_url = signed.signedUrl;
+        }
+      } catch {
+        // Listing the event again regenerates signed URLs.
       }
       onStatus?.(file, 'complete');
       return fileData as EventFile;

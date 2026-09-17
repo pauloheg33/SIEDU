@@ -184,7 +184,7 @@ export default function PublicEvent() {
           <section className="public-section">
             <h2 className="public-section-title">
               <Image size={22} />
-              Galeria de Fotos ({photos.length})
+              Galeria de Fotos e Vídeos ({photos.length})
             </h2>
             <div className="public-photos-grid">
               {photos.map((photo) => (
@@ -193,7 +193,11 @@ export default function PublicEvent() {
                   className="public-photo-item"
                   onClick={() => setSelectedPhoto(photo)}
                 >
-                  <img 
+                  {photo.mime.startsWith('video/') ? (
+                      <video src={photo.url} controls preload="metadata" playsInline
+                        aria-label={photo.filename} onClick={(e) => e.stopPropagation()} />
+                    ) : (
+                      <img
                     src={photo.thumbnail_url || photo.url} 
                     alt={photo.filename}
                     loading="lazy"
@@ -204,6 +208,7 @@ export default function PublicEvent() {
                       }
                     }}
                   />
+                    )}
                 </div>
               ))}
             </div>
@@ -214,13 +219,18 @@ export default function PublicEvent() {
                 <button className="close-btn" onClick={() => setSelectedPhoto(null)}>
                   <X size={24} />
                 </button>
-                <img 
+                {selectedPhoto.mime.startsWith('video/') ? (
+                  <video src={selectedPhoto.url} controls autoPlay playsInline
+                    aria-label={selectedPhoto.filename} onClick={(e) => e.stopPropagation()} />
+                ) : (
+                  <img
                   src={selectedPhoto.url} 
                   alt={selectedPhoto.filename}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
+                )}
               </div>
             )}
           </section>
